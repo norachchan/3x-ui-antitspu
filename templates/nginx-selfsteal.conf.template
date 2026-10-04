@@ -1,0 +1,37 @@
+# 3x-ui-antitspu — локальный TLS-фронт для REALITY self-steal (inbound на 127.0.0.1).
+# Пути WS/gRPC/sub — подставьте под свой сервер или отредактируйте после apply.
+server {
+    listen 127.0.0.1:@LISTEN_PORT@ ssl http2;
+    server_name @SELFSTEAL_DOMAIN@;
+    ssl_certificate /root/cert/domain/fullchain.pem;
+    ssl_certificate_key /root/cert/domain/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    server_tokens off;
+    absolute_redirect off;
+    access_log off;
+
+    location = /ngznrjjbeh {
+        proxy_pass http://127.0.0.1:10451;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_read_timeout 1h;
+    }
+    location /tpjepo0u/ {
+        grpc_pass grpc://127.0.0.1:10453;
+        grpc_set_header X-Real-IP $remote_addr;
+        grpc_read_timeout 1h;
+        grpc_send_timeout 1h;
+        client_max_body_size 0;
+    }
+    location @SUB_PATH@ {
+        proxy_pass http://127.0.0.1:10460;
+        proxy_set_header Host $host;
+    }
+    location / {
+        root /var/www/kit;
+        index index.html;
+    }
+}

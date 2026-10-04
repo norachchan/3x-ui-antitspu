@@ -1,0 +1,7 @@
+*.pyc
+__pycache__/
+.env
+*.pem
+*.key
+x-ui.db
+*.log
