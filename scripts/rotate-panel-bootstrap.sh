@@ -66,7 +66,7 @@ create_api_token
 upsert_install_result_kv XUI_USERNAME "$PANEL_USER"
 upsert_install_result_kv XUI_PASSWORD "$PANEL_PASS"
 upsert_install_result_kv XUI_PANEL_PORT "$PANEL_PORT"
-upsert_install_result_kv XUI_WEB_BASE_PATH "$PANEL_PATH"
+upsert_install_result_kv XUI_WEB_BASE_PATH "/${PANEL_PATH%/}/"
 persist_server_ip
 url="$(build_panel_access_url 2>/dev/null || true)"
 [[ -n "$url" ]] && upsert_install_result_kv XUI_ACCESS_URL "$url"

@@ -13,8 +13,7 @@ DB=/etc/x-ui/x-ui.db
 
 [[ -f "$DB" ]] || { warn "Панель не найдена."; exit 0; }
 
-IFS=$'\t' read -r PANEL_URL USER PASS SUB_URL PROTO_COUNT PROTO_LIST NAME OVERLAY_OK API_TOKEN <<EOF
-$(python3 - "$DB" "$ENV" <<'PY'
+FIN_JSON=$(python3 - "$DB" "$ENV" <<'PY'
 import json, os, sqlite3, sys, urllib.parse
 
 db_path, env_path = sys.argv[1], sys.argv[2]
@@ -136,6 +135,14 @@ if not sub_id:
         if sub_id:
             break
 name = user or "admin"
+if os.path.isfile("/etc/3x-ui-antitspu.env"):
+    for line in open("/etc/3x-ui-antitspu.env"):
+        line = line.strip()
+        if line.startswith("NODE_REMARK="):
+            nr = line.split("=", 1)[1].strip().strip("'\"")
+            if nr:
+                name = nr
+            break
 sub_url = ""
 if sub_id:
     if sub_uri and sub_uri.endswith(sub_path.rstrip("/")):
@@ -160,10 +167,29 @@ try:
 except OSError:
     pass
 
-print(panel, user, passwd, sub_url, count, ",".join(labels), name, overlay, api_token, sep="\t")
+print(json.dumps({
+    "panel": panel,
+    "user": user or "",
+    "pass": passwd or "",
+    "sub_url": sub_url,
+    "proto_count": count,
+    "proto_list": ",".join(labels),
+    "name": name,
+    "overlay": overlay,
+    "api_token": api_token or "",
+}, ensure_ascii=False))
 PY
 )
-EOF
+
+PANEL_URL=$(jq -r '.panel // ""' <<<"$FIN_JSON")
+USER=$(jq -r '.user // ""' <<<"$FIN_JSON")
+PASS=$(jq -r '.pass // ""' <<<"$FIN_JSON")
+SUB_URL=$(jq -r '.sub_url // ""' <<<"$FIN_JSON")
+PROTO_COUNT=$(jq -r '.proto_count // 0' <<<"$FIN_JSON")
+PROTO_LIST=$(jq -r '.proto_list // ""' <<<"$FIN_JSON")
+NAME=$(jq -r '.name // "admin"' <<<"$FIN_JSON")
+OVERLAY_OK=$(jq -r '.overlay // 0' <<<"$FIN_JSON")
+API_TOKEN=$(jq -r '.api_token // ""' <<<"$FIN_JSON")
 
 # Дополнить из /root/3x-ui.txt, если env пустой
 if [[ -f "$RESULT" ]]; then
