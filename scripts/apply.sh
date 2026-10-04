@@ -3,6 +3,8 @@
 set -Eeuo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=lib-ui.sh
+. "$ROOT/scripts/lib-ui.sh"
 [ -f /etc/3x-ui-antitspu.env ] && # shellcheck disable=SC1091
   . /etc/3x-ui-antitspu.env
 ANTITSPU_DIR="${ANTITSPU_DIR:-$ROOT}"
@@ -94,4 +96,3 @@ if [[ -n "${XRAY_VERSION:-}" ]] && [[ -x "$ANTITSPU_DIR/scripts/upgrade-xray.sh"
   bash "$ANTITSPU_DIR/scripts/upgrade-xray.sh" "$XRAY_VERSION"
 fi
 
-say "Готово. Проверка: curl -sk https://<ваш-ip>/<sub-path>/<subId> | base64 -d | head"

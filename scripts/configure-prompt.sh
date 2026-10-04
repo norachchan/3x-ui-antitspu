@@ -2,8 +2,11 @@
 # Интерактивно заполнить /etc/3x-ui-antitspu.env (домен / IP / имя узла в панели).
 set -Eeuo pipefail
 
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ENV_FILE=/etc/3x-ui-antitspu.env
-EXAMPLE="$(cd "$(dirname "$0")/.." && pwd)/config/antitspu.env.example"
+EXAMPLE="$ROOT/config/antitspu.env.example"
+# shellcheck source=lib-ui.sh
+. "$ROOT/scripts/lib-ui.sh"
 
 [[ -f "$ENV_FILE" ]] || cp "$EXAMPLE" "$ENV_FILE"
 
@@ -30,7 +33,6 @@ PY
 
 cur() { grep -E "^${1}=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' || true; }
 
-say() { printf '%s\n' "$*"; }
 ask() {
   local var="$1" prompt="$2" default="$3" val
   if [[ -n "$default" ]]; then
@@ -51,10 +53,10 @@ set_env() {
   fi
 }
 
-say ""
-say "=== 3x-ui-antitspu: адрес в ссылках и имя узла ==="
-say "По умолчанию в ссылках только IP. Домен нужен для self-steal и WS/gRPC через nginx."
-say ""
+antitspu_banner
+echo "Настройка адреса в ссылках и имени узла (Enter — оставить по умолчанию)."
+echo "${D}По умолчанию в ссылках только IP. Домен — для self-steal и WS/gRPC.${N}"
+echo
 
 ip_def="$(detect_host_from_db)"
 [[ -z "$ip_def" ]] && ip_def="$(default_ip)"
@@ -84,5 +86,5 @@ say "В списке панели тип протокола (REALITY, XHTTP…) 
 node_def="$(cur NODE_REMARK)"
 ask NODE_REMARK "  NODE_REMARK" "$node_def"
 
-say ""
+echo
 say "Сохранено в $ENV_FILE"

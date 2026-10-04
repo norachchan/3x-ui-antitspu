@@ -3,6 +3,9 @@
 set -Eeuo pipefail
 
 ANTITSPU_DIR="${ANTITSPU_DIR:-/opt/3x-ui-antitspu}"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=lib-ui.sh
+. "$ROOT/scripts/lib-ui.sh"
 VENDOR_PY="$ANTITSPU_DIR/vendor/stack/sub-proxy-base.py"
 STACK_VERSION="${STACK_VERSION:-$(cat "$ANTITSPU_DIR/vendor/stack/VERSION" 2>/dev/null || echo 1.1.2)}"
 UPSTREAM_RAW="https://raw.githubusercontent.com/itsnotkubrick/3X-UI_KIT/v${STACK_VERSION}"
@@ -10,8 +13,6 @@ DB=/etc/x-ui/x-ui.db
 
 [[ $EUID -eq 0 ]] || { echo "Запустите от root." >&2; exit 1; }
 [[ -f "$DB" ]] || { echo "Нет $DB — сначала bash install.sh." >&2; exit 1; }
-
-say() { printf '==> %s\n' "$*"; }
 
 if [[ -f /usr/local/lib/kit-sub/kit_sub.py ]] && [[ -f /etc/kit-sub/config.json ]]; then
   say "Прокси подписки уже установлен"

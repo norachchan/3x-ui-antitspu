@@ -271,7 +271,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if code == 200 and clash and not awg:
                 body = domain_clash(strip_awg(body), domain)
             elif code == 200 and awg and not sub_id.endswith(("-awg", "-tg")):
-                # Установки до kit 1.1 держали AmneziaWG в подписке «<id>-awg» – подмешиваем её.
+                # Старые установки держали AmneziaWG в подписке «<id>-awg» – подмешиваем её.
                 acode, _, abody = upstream(sub_id + "-awg", ua, host, accept)
                 if acode == 200 and abody:
                     body = merge_awg(body, abody)

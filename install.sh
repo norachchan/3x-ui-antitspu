@@ -13,10 +13,12 @@ set -Eeuo pipefail
 
 REPO_URL="${REPO_URL:-https://github.com/norachchan/3x-ui-antitspu.git}"
 INSTALL_DIR="${INSTALL_DIR:-/opt/3x-ui-antitspu}"
+RAN_BASE=0
 
 [[ $EUID -eq 0 ]] || { echo "Запустите от root: sudo -i" >&2; exit 1; }
 
-say() { printf '==> %s\n' "$*"; }
+# lib-ui после клонирования (ниже повторно source)
+say_plain() { printf '==> %s\n' "$*"; }
 
 sub_proxy_ready() {
   [[ -f /usr/local/lib/kit-sub/kit_sub.py ]] && [[ -f /etc/kit-sub/config.json ]]
@@ -27,14 +29,17 @@ xui_present() {
 }
 
 if [[ ! -d "$INSTALL_DIR/.git" ]]; then
-  say "Клонирование $REPO_URL → $INSTALL_DIR"
+  say_plain "Клонирование $REPO_URL → $INSTALL_DIR"
   apt-get update -qq
-  apt-get install -y -qq git ca-certificates curl jq patch python3 python3-yaml >/dev/null
+  apt-get install -y -qq git ca-certificates curl jq patch python3 python3-yaml qrencode >/dev/null
   git clone --depth 1 "$REPO_URL" "$INSTALL_DIR"
 else
-  say "Обновление репозитория в $INSTALL_DIR"
+  say_plain "Обновление репозитория в $INSTALL_DIR"
   git -C "$INSTALL_DIR" pull --ff-only 2>/dev/null || true
 fi
+
+# shellcheck source=scripts/lib-ui.sh
+. "$INSTALL_DIR/scripts/lib-ui.sh"
 
 export ANTITSPU_DIR="$INSTALL_DIR"
 
@@ -53,12 +58,13 @@ if [[ "${1:-}" == "--" ]]; then
 fi
 
 if [[ "${SKIP_BASE_INSTALL:-0}" != "1" ]] && ! xui_present; then
+  RAN_BASE=1
   bash "$INSTALL_DIR/scripts/base-install.sh" -- "${installer_args[@]}"
   if [[ -x /usr/local/bin/kit ]]; then
     /usr/local/bin/kit update --unattended 2>/dev/null || true
   fi
 elif [[ "${#installer_args[@]}" -gt 0 ]]; then
-  say "Панель уже есть — аргументы установщика не применяются (только overlay)."
+  warn "Панель уже есть — аргументы установщика не применяются (только overlay)."
 fi
 
 if ! sub_proxy_ready && xui_present; then
@@ -68,7 +74,8 @@ fi
 
 bash "$INSTALL_DIR/scripts/apply.sh"
 
-say ""
-say "Готово. Каталог: $INSTALL_DIR"
-say "Повтор overlay: ANTITSPU_DIR=$INSTALL_DIR bash $INSTALL_DIR/scripts/apply.sh"
-say "Донастройка: $INSTALL_DIR/docs/PANEL-TUNING.md"
+if [[ "$RAN_BASE" == 1 ]]; then
+  bash "$INSTALL_DIR/scripts/finish-install.sh" compact
+else
+  bash "$INSTALL_DIR/scripts/finish-install.sh" full
+fi

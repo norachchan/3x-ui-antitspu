@@ -3,6 +3,8 @@
 set -Eeuo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=lib-ui.sh
+. "$ROOT/scripts/lib-ui.sh"
 STACK_SH="$ROOT/vendor/stack/3x-ui.sh"
 SUB_BASE="$ROOT/vendor/stack/sub-proxy-base.py"
 
@@ -23,5 +25,5 @@ if [[ "${1:-}" == "--" ]]; then shift; fi
 args+=("$@")
 
 ver="$(cat "$ROOT/vendor/stack/VERSION" 2>/dev/null || echo '?')"
-printf '==> 3x-ui-antitspu базовый стек (vendor %s)\n' "$ver"
+say "Базовый стек (vendor $ver): панель, протоколы, nginx"
 exec bash "$STACK_SH" "${args[@]}"
