@@ -81,8 +81,8 @@ echo
 ask SELFSTEAL_DOMAIN "Self-steal REALITY (nginx zz-selfsteal), Enter = пропустить" "$steal_def"
 
 echo
-echo "Имя узла в панели (remark у всех inbound, как «poland» на другом сервере)."
-echo "В списке панели тип протокола (REALITY, XHTTP…) показывается отдельной строкой под именем."
+echo "Имя узла (префикс remark): в панели будет «имя · REALITY», «имя · XHTTP» и т.д."
+echo "${D}Одно имя на все inbound без протокола даёт в панели «(imported 1)» вместо типа.${N}"
 node_def="$(cur NODE_REMARK)"
 ask NODE_REMARK "  NODE_REMARK" "$node_def"
 
