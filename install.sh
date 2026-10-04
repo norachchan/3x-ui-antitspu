@@ -17,16 +17,7 @@ RAN_BASE=0
 
 [[ $EUID -eq 0 ]] || { echo "Запустите от root: sudo -i" >&2; exit 1; }
 
-# lib-ui после клонирования (ниже повторно source)
 say_plain() { printf '==> %s\n' "$*"; }
-
-sub_proxy_ready() {
-  [[ -f /usr/local/lib/kit-sub/kit_sub.py ]] && [[ -f /etc/kit-sub/config.json ]]
-}
-
-xui_present() {
-  [[ -f /etc/x-ui/x-ui.db ]] || [[ -f /etc/x-ui/install-result.env ]]
-}
 
 if [[ ! -d "$INSTALL_DIR/.git" ]]; then
   say_plain "Клонирование $REPO_URL → $INSTALL_DIR"
@@ -38,8 +29,23 @@ else
   git -C "$INSTALL_DIR" pull --ff-only 2>/dev/null || true
 fi
 
+# curl | bash отдаёт старую копию в память — после pull всегда запускаем install.sh с диска.
+LOCAL_INSTALL="$INSTALL_DIR/install.sh"
+if [[ -f "$LOCAL_INSTALL" ]] && [[ "${ANTITSPU_REEXEC:-0}" != 1 ]]; then
+  export ANTITSPU_REEXEC=1
+  exec bash "$LOCAL_INSTALL" "$@"
+fi
+
 # shellcheck source=scripts/lib-ui.sh
 . "$INSTALL_DIR/scripts/lib-ui.sh"
+
+sub_proxy_ready() {
+  [[ -f /usr/local/lib/kit-sub/kit_sub.py ]] && [[ -f /etc/kit-sub/config.json ]]
+}
+
+xui_present() {
+  [[ -f /etc/x-ui/x-ui.db ]] || [[ -f /etc/x-ui/install-result.env ]]
+}
 
 export ANTITSPU_DIR="$INSTALL_DIR"
 

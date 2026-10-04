@@ -55,7 +55,8 @@ if not panel:
 sub_uri = setting("subURI", "").rstrip("/")
 sub_path = setting("subPath", "/sub/")
 row = con.execute(
-    "select email, sub_id from clients where enable=1 order by id limit 1"
+    "select email, sub_id from clients where enable=1 "
+    "order by case when email='admin' then 0 else 1 end, id limit 1"
 ).fetchone()
 name, sub_id = (row[0], row[1]) if row else ("admin", "")
 sub_url = ""

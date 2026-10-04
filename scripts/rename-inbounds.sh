@@ -2,6 +2,10 @@
 # Единый remark узла (NODE_REMARK) для всех inbound.
 set -Eeuo pipefail
 
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=lib-ui.sh
+. "$ROOT/scripts/lib-ui.sh"
+
 DB=/etc/x-ui/x-ui.db
 [[ -f /etc/3x-ui-antitspu.env ]] && # shellcheck disable=SC1091
   . /etc/3x-ui-antitspu.env
@@ -22,7 +26,7 @@ con.commit()
 print(cur.rowcount)
 PY
 )
-echo "==> inbound remark → «$NODE_REMARK» (обновлено строк: $n)"
+say "inbound remark → «$NODE_REMARK» (обновлено: $n)"
 
 if command -v x-ui >/dev/null; then
   x-ui restart 2>/dev/null || systemctl restart x-ui

@@ -64,8 +64,8 @@ ip_def="$(detect_host_from_db)"
 
 ask PUBLIC_HOST "IP или хост в подписке (как в ссылках)" "$ip_def"
 
-say ""
-say "Домен с A-записью на этот сервер (Enter = не использовать):"
+echo
+echo "Домен с A-записью на этот сервер (Enter = не использовать):"
 dom_def="$(cur LINK_DOMAIN)"
 ask LINK_DOMAIN "  LINK_DOMAIN (WS/gRPC в подписке)" "$dom_def"
 
@@ -77,12 +77,12 @@ fi
 
 steal_def="$(cur SELFSTEAL_DOMAIN)"
 [[ -z "$steal_def" && -n "$(cur LINK_DOMAIN)" ]] && steal_def="$(cur LINK_DOMAIN)"
-say ""
+echo
 ask SELFSTEAL_DOMAIN "Self-steal REALITY (nginx zz-selfsteal), Enter = пропустить" "$steal_def"
 
-say ""
-say "Имя узла в панели (remark у всех inbound, как «poland» на другом сервере)."
-say "В списке панели тип протокола (REALITY, XHTTP…) показывается отдельной строкой под именем."
+echo
+echo "Имя узла в панели (remark у всех inbound, как «poland» на другом сервере)."
+echo "В списке панели тип протокола (REALITY, XHTTP…) показывается отдельной строкой под именем."
 node_def="$(cur NODE_REMARK)"
 ask NODE_REMARK "  NODE_REMARK" "$node_def"
 
