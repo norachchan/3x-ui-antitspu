@@ -1,61 +1,65 @@
 # 3x-ui-antitspu
 
-Overlay для сервера на базе [3X-UI](https://github.com/MHSanaei/3x-ui) (установка через [3X-UI_KIT](https://github.com/itsnotkubrick/3X-UI_KIT)): подписка и nginx с упором на обход типичных срабатываний ТСПУ.
+**Один репозиторий** — полная установка VPN-узла на [3X-UI](https://github.com/MHSanaei/3x-ui) и встроенном [3X-UI KIT](https://github.com/itsnotkubrick/3X-UI_KIT) (vendor, не форк) + overlay против типичных срабатываний ТСПУ.
 
-**Не форк панели** — поверх уже установленного стека накладываются скрипты и `kit_sub.py`.
+Отдельно качать KIT не нужно: установщик лежит в `vendor/kit/`.
 
 ## Одна команда (новый VPS)
-
-Репозиторий: [github.com/norachchan/3x-ui-antitspu](https://github.com/norachchan/3x-ui-antitspu)
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/norachchan/3x-ui-antitspu/main/install.sh)
 ```
 
+Интерактивно спросит **IP/хост в ссылках**, **домен** (опционально), **имя узла** (`NODE_REMARK` в панели).  
+Домен на этапе KIT (self-steal, Let's Encrypt):
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/norachchan/3x-ui-antitspu/main/install.sh) -- --domain stats.example.com -y
+```
+
+Или заранее в `/etc/3x-ui-antitspu.env`: `LINK_DOMAIN=…`, `PUBLIC_HOST=…`, `NODE_REMARK=NL-02`.
+
 ## Только overlay (панель уже есть)
 
 ```bash
-SKIP_BASE_INSTALL=1 REPO_URL=https://github.com/norachchan/3x-ui-antitspu.git \
-  bash <(curl -fsSL https://raw.githubusercontent.com/norachchan/3x-ui-antitspu/main/install.sh)
+SKIP_BASE_INSTALL=1 bash <(curl -fsSL https://raw.githubusercontent.com/norachchan/3x-ui-antitspu/main/install.sh)
 ```
 
-## Что делает overlay
+## Состав
+
+| Часть | Путь |
+|--------|------|
+| KIT (панель, протоколы, nginx, kit-sub) | `vendor/kit/3x-ui.sh` |
+| Anti-TSPU overlay | `overlay/kit_sub.py`, `scripts/apply.sh` |
+| Мастер IP/домен/имя узла | `scripts/configure-prompt.sh` |
+| Self-steal nginx | `templates/nginx-selfsteal.conf.template` |
+
+## Что даёт overlay
 
 | Компонент | Назначение |
 |-----------|------------|
-| `overlay/kit_sub.py` | SNI для WS/gRPC по IP; опционально `link_domain`; **xHTTP `xmux.maxConnections: 3`** |
-| `scripts/reapply-sub.sh` | Восстановление после `kit update` (hook в `kit-update.service`) |
-| `scripts/kit-ip-cert-sync.sh` | Синхронизация IP-сертификата acme → `/root/cert/custom` |
-| `templates/nginx-selfsteal.conf.template` | Локальный HTTPS для REALITY self-steal |
-| `scripts/upgrade-xray.sh` | Опционально Xray 26.7+ |
+| `overlay/kit_sub.py` | SNI для WS/gRPC по IP; `link_domain`; xHTTP `xmux.maxConnections: 3` |
+| `scripts/reapply-sub.sh` | После `kit update` (hook в `kit-update.service`) |
+| `scripts/kit-ip-cert-sync.sh` | acme IP-сертификат → `/root/cert/custom` |
+| `scripts/upgrade-xray.sh` | Опционально Xray 26.7+ (`XRAY_VERSION` в env) |
 
 ## Настройка
 
 ```bash
-cp /opt/3x-ui-antitspu/config/antitspu.env.example /etc/3x-ui-antitspu.env
 nano /etc/3x-ui-antitspu.env
 bash /opt/3x-ui-antitspu/scripts/apply.sh
 ```
 
-Пример:
+См. `config/antitspu.env.example`.
+
+Ручная донастройка inbound'ов (firefox, self-steal inbound, AWG): `docs/PANEL-TUNING.md`.
+
+## Обновить встроенный KIT
 
 ```bash
-LINK_DOMAIN=stats.example.com
-LINK_DOMAIN_SUBS=*
-SELFSTEAL_DOMAIN=stats.example.com
-XRAY_VERSION=26.7.28
+bash /opt/3x-ui-antitspu/scripts/sync-kit-vendor.sh v1.1.2
+git -C /opt/3x-ui-antitspu commit -am "vendor: kit v1.1.2"   # если ведёте свой форк
 ```
-
-Перед self-steal: выпустите сертификат на домен (`acme.sh`), пропишите пути в шаблоне nginx при необходимости.
-
-## Ручная донастройка панели (не в репозитории)
-
-Рекомендуется после установки (см. ваш runbook):
-
-- отпечаток **firefox** в REALITY / TLS / Hysteria;
-- inbound self-steal REALITY → `127.0.0.1:10448`;
-- AmneziaWG 1.x / 3.1 и twin `*-awg` для Mihomo;
-- `worker_connections` nginx ≥ 16384.
 
 ## Проверка подписки
 
@@ -63,8 +67,7 @@ XRAY_VERSION=26.7.28
 curl -sk "https://<IP>/<sub-path>/<subId>" | base64 -d | grep -E 'xmux|sni='
 ```
 
-В xHTTP-ссылке в `extra` должно быть `"xmux":{"maxConnections":3}`; у WS/gRPC TLS — `sni=<IP>`.
+## Лицензия и атрибуция
 
-## Лицензия
-
-`overlay/kit_sub.py` производен от kit-sub 3X-UI KIT; остальные файлы — по вашему усмотрению.
+- `vendor/kit/*` — проект [itsnotkubrick/3X-UI_KIT](https://github.com/itsnotkubrick/3X-UI_KIT), см. `vendor/kit/NOTICE.md`.
+- `overlay/kit_sub.py` — производная от kit-sub KIT; остальные файлы — по вашему усмотрению.

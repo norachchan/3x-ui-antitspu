@@ -7,10 +7,23 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
   . /etc/3x-ui-antitspu.env
 ANTITSPU_DIR="${ANTITSPU_DIR:-$ROOT}"
 
+if [[ -x "$ANTITSPU_DIR/scripts/configure-prompt.sh" ]] && [[ "${ANTITSPU_SKIP_PROMPT:-0}" != 1 ]]; then
+  bash "$ANTITSPU_DIR/scripts/configure-prompt.sh"
+fi
+
 [[ $EUID -eq 0 ]] || { echo "Запустите от root." >&2; exit 1; }
-[[ -f /etc/x-ui/install-result.env ]] || { echo "Сначала установите 3X-UI (базовый install.sh)." >&2; exit 1; }
+[[ -f /etc/x-ui/x-ui.db ]] || [[ -f /etc/x-ui/install-result.env ]] || {
+  echo "Сначала установите 3X-UI (bash install.sh на чистом VPS или KIT)." >&2
+  exit 1
+}
 
 say() { printf '==> %s\n' "$*"; }
+
+if [[ ! -f /usr/local/lib/kit-sub/kit_sub.py ]]; then
+  say "kit-sub не найден — bootstrap"
+  bash "$ANTITSPU_DIR/scripts/bootstrap-kit-sub.sh"
+fi
+install -d -m 755 /usr/local/lib/kit-sub /etc/kit-sub
 
 say "Подписка: overlay kit_sub.py"
 export ANTITSPU_DIR
@@ -21,16 +34,27 @@ install -m 644 "$ANTITSPU_DIR/overlay/kit_sub.py" /usr/local/lib/kit-sub/kit_sub
 python3 -m py_compile /usr/local/lib/kit-sub/kit_sub.py
 systemctl restart kit-sub
 
-if [[ -n "${LINK_DOMAIN:-}" ]]; then
-  say "kit-sub config: link_domain=$LINK_DOMAIN"
-  CFG=/etc/kit-sub/config.json
-  if [[ -f "$CFG" ]] && command -v jq >/dev/null; then
+CFG=/etc/kit-sub/config.json
+if [[ -f "$CFG" ]] && command -v jq >/dev/null; then
+  host="${PUBLIC_HOST:-}"
+  [[ -z "$host" ]] && host=$(jq -r '.host // empty' "$CFG")
+  if [[ -n "${PUBLIC_HOST:-}" ]]; then
+    say "kit-sub host=$PUBLIC_HOST"
+    tmp=$(mktemp)
+    jq --arg h "$PUBLIC_HOST" '.host = $h' "$CFG" >"$tmp" && mv "$tmp" "$CFG"
+  fi
+  if [[ -n "${LINK_DOMAIN:-}" ]]; then
+    say "kit-sub link_domain=$LINK_DOMAIN"
     subs="${LINK_DOMAIN_SUBS:-[]}"
     tmp=$(mktemp)
     jq --arg d "$LINK_DOMAIN" --argjson s "$subs" \
       '.link_domain = $d | .link_domain_subs = $s' "$CFG" >"$tmp" && mv "$tmp" "$CFG"
-    systemctl restart kit-sub
   fi
+  systemctl restart kit-sub 2>/dev/null || true
+fi
+
+if [[ -n "${NODE_REMARK:-}" ]] && [[ -x "$ANTITSPU_DIR/scripts/rename-inbounds.sh" ]]; then
+  bash "$ANTITSPU_DIR/scripts/rename-inbounds.sh"
 fi
 
 if [[ -f "$ANTITSPU_DIR/scripts/kit-ip-cert-sync.sh" ]]; then
