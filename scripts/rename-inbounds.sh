@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Единый remark узла (NODE_REMARK) для всех inbound — как после ручной настройки на проде.
+# Единый remark узла (NODE_REMARK) для всех inbound.
 set -Eeuo pipefail
 
 DB=/etc/x-ui/x-ui.db
@@ -10,8 +10,18 @@ NODE_REMARK="${NODE_REMARK:-}"
 [[ -n "$NODE_REMARK" ]] || exit 0
 [[ -f "$DB" ]] || { echo "Нет $DB" >&2; exit 1; }
 
-esc="${NODE_REMARK//\'/\'\'}"
-n=$(sqlite3 "$DB" "UPDATE inbounds SET remark='${esc}' WHERE remark NOT LIKE 'exit-%'; SELECT changes();")
+n=$(python3 - "$DB" "$NODE_REMARK" <<'PY'
+import sqlite3, sys
+db, remark = sys.argv[1], sys.argv[2]
+con = sqlite3.connect(db)
+cur = con.execute(
+    "UPDATE inbounds SET remark=? WHERE remark NOT LIKE 'exit-%'",
+    (remark,),
+)
+con.commit()
+print(cur.rowcount)
+PY
+)
 echo "==> inbound remark → «$NODE_REMARK» (обновлено строк: $n)"
 
 if command -v x-ui >/dev/null; then

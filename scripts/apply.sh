@@ -54,7 +54,7 @@ if [[ -f "$CFG" ]] && command -v jq >/dev/null; then
 fi
 
 if [[ -n "${NODE_REMARK:-}" ]] && [[ -x "$ANTITSPU_DIR/scripts/rename-inbounds.sh" ]]; then
-  bash "$ANTITSPU_DIR/scripts/rename-inbounds.sh"
+  bash "$ANTITSPU_DIR/scripts/rename-inbounds.sh" || say "Предупреждение: remark не обновлён (см. выше)"
 fi
 
 if [[ -f "$ANTITSPU_DIR/scripts/ip-cert-sync.sh" ]]; then

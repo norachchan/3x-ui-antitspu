@@ -29,7 +29,7 @@ xui_present() {
 if [[ ! -d "$INSTALL_DIR/.git" ]]; then
   say "Клонирование $REPO_URL → $INSTALL_DIR"
   apt-get update -qq
-  apt-get install -y -qq git ca-certificates curl jq patch python3 >/dev/null
+  apt-get install -y -qq git ca-certificates curl jq patch python3 python3-yaml >/dev/null
   git clone --depth 1 "$REPO_URL" "$INSTALL_DIR"
 else
   say "Обновление репозитория в $INSTALL_DIR"

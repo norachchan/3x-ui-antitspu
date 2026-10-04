@@ -17,8 +17,15 @@ default_ip() {
 
 detect_host_from_db() {
   [[ -f /etc/x-ui/x-ui.db ]] || return 0
-  sqlite3 /etc/x-ui/x-ui.db "select value from settings where key='subURI' limit 1;" 2>/dev/null \
-    | python3 -c "import sys,urllib.parse; u=urllib.parse.urlsplit(sys.stdin.read().strip()); print(u.hostname or '')" 2>/dev/null || true
+  python3 - /etc/x-ui/x-ui.db <<'PY' 2>/dev/null || true
+import sqlite3, sys, urllib.parse
+db = sqlite3.connect(sys.argv[1])
+row = db.execute("select value from settings where key='subURI' limit 1").fetchone()
+if not row or not row[0]:
+    sys.exit(0)
+u = urllib.parse.urlsplit(row[0].strip())
+print(u.hostname or "")
+PY
 }
 
 cur() { grep -E "^${1}=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' || true; }
