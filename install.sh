@@ -2,14 +2,14 @@
 # 3x-ui-antitspu — базовая панель 3X-UI + overlay против ТСПУ.
 #
 # Новый VPS:
-#   bash <(curl -fsSL https://raw.githubusercontent.com/YOUR_USER/3x-ui-antitspu/main/install.sh)
+#   git clone https://origin.cursor.com/merritt-e/3x-ui-antitspu.git /opt/3x-ui-antitspu && bash /opt/3x-ui-antitspu/install.sh
 #
 # Только overlay (панель уже стоит):
 #   SKIP_BASE_INSTALL=1 bash <(curl -fsSL .../install.sh)
 #
 set -Eeuo pipefail
 
-REPO_URL="${REPO_URL:-https://github.com/YOUR_USER/3x-ui-antitspu.git}"
+REPO_URL="${REPO_URL:-https://origin.cursor.com/merritt-e/3x-ui-antitspu.git}"
 INSTALL_DIR="${INSTALL_DIR:-/opt/3x-ui-antitspu}"
 KIT_INSTALL_URL="${KIT_INSTALL_URL:-https://raw.githubusercontent.com/itsnotkubrick/3X-UI_KIT/main/scripts/3x-ui.sh}"
 

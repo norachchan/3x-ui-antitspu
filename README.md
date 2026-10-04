@@ -6,17 +6,20 @@ Overlay для сервера на базе [3X-UI](https://github.com/MHSanaei/
 
 ## Одна команда (новый VPS)
 
-Замените `YOUR_USER` на свой GitHub:
+Репозиторий: [merritt-e/3x-ui-antitspu](https://cursor.com/codebase/merritt-e/3x-ui-antitspu)
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/YOUR_USER/3x-ui-antitspu/main/install.sh)
+git clone https://origin.cursor.com/merritt-e/3x-ui-antitspu.git /opt/3x-ui-antitspu
+bash /opt/3x-ui-antitspu/install.sh
 ```
+
+(Нужен вход в Cursor: `origin auth login` на сервере.)
 
 ## Только overlay (панель уже есть)
 
 ```bash
-SKIP_BASE_INSTALL=1 REPO_URL=https://github.com/YOUR_USER/3x-ui-antitspu.git \
-  bash <(curl -fsSL https://raw.githubusercontent.com/YOUR_USER/3x-ui-antitspu/main/install.sh)
+git clone https://origin.cursor.com/merritt-e/3x-ui-antitspu.git /opt/3x-ui-antitspu
+SKIP_BASE_INSTALL=1 bash /opt/3x-ui-antitspu/install.sh
 ```
 
 ## Что делает overlay
