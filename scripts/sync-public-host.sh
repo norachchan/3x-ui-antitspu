@@ -84,28 +84,27 @@ if [[ -f /etc/kit/kit.env ]]; then
   fi
 fi
 
-if [[ -f /etc/x-ui/install-result.env ]]; then
-  read -r panel_port panel_path <<EOF
-$(python3 - /etc/x-ui/x-ui.db <<'PY'
-import sqlite3, sys
-con = sqlite3.connect(sys.argv[1])
-def s(k, d=""):
-    r = con.execute("select value from settings where key=?", (k,)).fetchone()
-    return r[0] if r and r[0] is not None else d
-print(s("webPort", "2053"), s("webBasePath", "/"))
-PY
-)
-EOF
-  # Панель слушает webPort (у вас 40455), не 443 — в URL всегда с портом.
-  access="https://${NEW}:${panel_port}/${panel_path#/}"
-  access="${access%/}/"
-  if grep -q '^XUI_ACCESS_URL=' /etc/x-ui/install-result.env; then
-    sed -i "s|^XUI_ACCESS_URL=.*|XUI_ACCESS_URL=$access|" /etc/x-ui/install-result.env
+# Панель: TLS обычно только на IP (/root/cert/ip). Домен в XUI_ACCESS_URL ломает вход в браузере.
+fix_panel_access_url() {
+  local envf=/etc/x-ui/install-result.env
+  [[ -f "$envf" ]] || return 0
+  local server_ip panel_port base_path
+  server_ip="$(grep -m1 '^XUI_SERVER_IP=' "$envf" | cut -d= -f2- | tr -d '"'"'")"
+  panel_port="$(grep -m1 '^XUI_PANEL_PORT=' "$envf" | cut -d= -f2- | tr -d '"'"'")"
+  base_path="$(grep -m1 '^XUI_WEB_BASE_PATH=' "$envf" | cut -d= -f2- | tr -d '"'"'")"
+  [[ -n "$server_ip" ]] || return 0
+  [[ -n "$panel_port" ]] || panel_port="$(python3 -c "import sqlite3;print(sqlite3.connect('/etc/x-ui/x-ui.db').execute(\"select value from settings where key='webPort'\").fetchone()[0])" 2>/dev/null || echo 2053)"
+  [[ -n "$base_path" ]] || base_path="/"
+  local url="https://${server_ip}:${panel_port}/${base_path#/}"
+  url="${url%/}/"
+  if grep -q '^XUI_ACCESS_URL=' "$envf"; then
+    sed -i "s|^XUI_ACCESS_URL=.*|XUI_ACCESS_URL=$url|" "$envf"
   else
-    echo "XUI_ACCESS_URL=$access" >>/etc/x-ui/install-result.env
+    echo "XUI_ACCESS_URL=$url" >>"$envf"
   fi
-  say "Панель в install-result: $access"
-fi
+  say "Панель (открывать по IP, сертификат на IP): $url"
+}
+fix_panel_access_url
 
 systemctl restart x-ui 2>/dev/null || true
-say "Публичный хост в панели: $NEW (перезапустите finish-install для экрана)"
+say "Подписка / ссылки: $NEW (finish-install.sh — актуальный URL)"

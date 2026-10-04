@@ -24,6 +24,13 @@ def setting(k, default=""):
     row = con.execute("select value from settings where key=?", (k,)).fetchone()
     return row[0] if row and row[0] is not None else default
 
+def is_ip(h):
+    if not h:
+        return False
+    parts = h.split(".")
+    return len(parts) == 4 and all(p.isdigit() and 0 <= int(p) <= 255 for p in parts)
+
+env = {}
 panel = user = passwd = ""
 if os.path.isfile(env_path):
     for line in open(env_path):
@@ -31,6 +38,7 @@ if os.path.isfile(env_path):
         if not line or line.startswith("#") or "=" not in line:
             continue
         k, v = line.split("=", 1)
+        env[k] = v
         if k == "XUI_ACCESS_URL":
             panel = v
         elif k == "XUI_USERNAME":
@@ -38,19 +46,27 @@ if os.path.isfile(env_path):
         elif k == "XUI_PASSWORD":
             passwd = v
 
-if not panel:
-    port = setting("webPort", "2053")
-    base = setting("webBasePath", "/")
+port = env.get("XUI_PANEL_PORT") or setting("webPort", "2053")
+base = env.get("XUI_WEB_BASE_PATH") or setting("webBasePath", "/")
+server_ip = env.get("XUI_SERVER_IP", "")
+
+if panel:
+    ph = urllib.parse.urlsplit(panel).hostname or ""
+    # subURI/домен в подписке ≠ TLS панели (часто только IP:40455)
+    if ph and not is_ip(ph) and server_ip:
+        panel = f"https://{server_ip}:{port}{base}"
+elif server_ip:
     listen = setting("webListen", "")
     if listen in ("127.0.0.1", "localhost"):
         panel = f"http://127.0.0.1:{port}{base}"
     else:
-        host = setting("subDomain") or ""
-        if not host:
-            sub_uri = setting("subURI", "")
-            if sub_uri:
-                host = urllib.parse.urlsplit(sub_uri).hostname or ""
-        panel = f"https://{host}:{port}{base}" if host else f"https://<IP>:{port}{base}"
+        panel = f"https://{server_ip}:{port}{base}"
+else:
+    listen = setting("webListen", "")
+    if listen in ("127.0.0.1", "localhost"):
+        panel = f"http://127.0.0.1:{port}{base}"
+    else:
+        panel = f"https://<IP>:{port}{base}"
 
 sub_uri = setting("subURI", "").rstrip("/")
 sub_path = setting("subPath", "/sub/")
@@ -138,6 +154,7 @@ echo "${D}${PROTO_LIST}${N}"
 [[ "$OVERLAY_OK" == 1 ]] && echo "${G}Anti-TSPU overlay:${N} SNI для WS/gRPC, xHTTP xmux ≤ 3."
 echo
 echo "Панель:  ${B}${PANEL_URL}${N}"
+echo "${D}Панель — по IP и порту ${N}${D}(сертификат на IP). Подписка может быть на домене.${N}"
 echo "Логин:   ${B}${USER}${N}"
 echo "Пароль:  ${B}${PASS}${N}"
 echo
