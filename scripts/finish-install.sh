@@ -48,7 +48,29 @@ if os.path.isfile(env_path):
 
 port = env.get("XUI_PANEL_PORT") or setting("webPort", "2053")
 base = env.get("XUI_WEB_BASE_PATH") or setting("webBasePath", "/")
-server_ip = env.get("XUI_SERVER_IP", "")
+if base and not base.startswith("/"):
+    base = "/" + base
+
+def resolve_server_ip():
+    ip = env.get("XUI_SERVER_IP", "")
+    if ip:
+        return ip
+    cert = "/root/cert/ip/fullchain.pem"
+    if os.path.isfile(cert):
+        try:
+            import re, subprocess
+            out = subprocess.run(
+                ["openssl", "x509", "-in", cert, "-noout", "-ext", "subjectAltName"],
+                capture_output=True, text=True, timeout=5,
+            )
+            m = re.search(r"IP Address:([0-9.]+)", out.stdout or "")
+            if m:
+                return m.group(1)
+        except (OSError, subprocess.SubprocessError):
+            pass
+    return ""
+
+server_ip = resolve_server_ip()
 
 if panel:
     ph = urllib.parse.urlsplit(panel).hostname or ""
@@ -70,21 +92,30 @@ else:
 
 sub_uri = setting("subURI", "").rstrip("/")
 sub_path = setting("subPath", "/sub/")
-row = con.execute(
-    "select email, sub_id from clients where enable=1 "
-    "order by case when email=? or email like ? then 0 else 1 end, id limit 1",
-    (user or "admin", (user or "admin") + "-%"),
-).fetchone()
+row = None
+try:
+    row = con.execute(
+        "select email, sub_id from clients where enable=1 "
+        "order by case when email=? or email like ? then 0 else 1 end, id limit 1",
+        (user or "admin", (user or "admin") + "-%"),
+    ).fetchone()
+except sqlite3.OperationalError:
+    row = None
 sub_id = row[1] if row else ""
+if not sub_id:
+    for (raw,) in con.execute("select settings from inbounds where enable=1"):
+        try:
+            data = json.loads(raw or "{}")
+        except json.JSONDecodeError:
+            continue
+        for c in data.get("clients") or []:
+            sid = c.get("subId") or c.get("sub_id")
+            if sid:
+                sub_id = sid
+                break
+        if sub_id:
+            break
 name = user or "admin"
-if row and row[0]:
-    em = row[0]
-    if em == name or em.startswith(name + "-"):
-        pass
-    elif "-" in em:
-        name = em.split("-", 1)[0]
-    else:
-        name = em
 sub_url = ""
 if sub_id:
     if sub_uri and sub_uri.endswith(sub_path.rstrip("/")):

@@ -97,15 +97,19 @@ if [[ -f /etc/kit/kit.env ]]; then
   fi
 fi
 
+# shellcheck source=lib-panel-ip.sh
+. "$ROOT/scripts/lib-panel-ip.sh"
+
 # Панель: TLS обычно только на IP (/root/cert/ip). Домен в XUI_ACCESS_URL ломает вход в браузере.
 fix_panel_access_url() {
   local envf=/etc/x-ui/install-result.env
   [[ -f "$envf" ]] || return 0
   local server_ip panel_port base_path
-  server_ip="$(grep -m1 '^XUI_SERVER_IP=' "$envf" | cut -d= -f2- | tr -d '"'"'")"
+  server_ip="$(resolve_server_ip)"
+  persist_server_ip
   panel_port="$(grep -m1 '^XUI_PANEL_PORT=' "$envf" | cut -d= -f2- | tr -d '"'"'")"
   base_path="$(grep -m1 '^XUI_WEB_BASE_PATH=' "$envf" | cut -d= -f2- | tr -d '"'"'")"
-  [[ -n "$server_ip" ]] || return 0
+  [[ -n "$server_ip" ]] || { warn "Не удалось определить IP панели"; return 0; }
   [[ -n "$panel_port" ]] || panel_port="$(python3 -c "import sqlite3;print(sqlite3.connect('/etc/x-ui/x-ui.db').execute(\"select value from settings where key='webPort'\").fetchone()[0])" 2>/dev/null || echo 2053)"
   [[ -n "$base_path" ]] || base_path="/"
   local url="https://${server_ip}:${panel_port}/${base_path#/}"
