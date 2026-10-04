@@ -50,9 +50,6 @@ if [[ -f "$CFG" ]] && command -v jq >/dev/null; then
     say "Подписка: host=$PUBLIC_HOST"
     tmp=$(mktemp)
     jq --arg h "$PUBLIC_HOST" '.host = $h' "$CFG" >"$tmp" && mv "$tmp" "$CFG"
-    if [[ -x "$ANTITSPU_DIR/scripts/sync-public-host.sh" ]]; then
-      bash "$ANTITSPU_DIR/scripts/sync-public-host.sh"
-    fi
   fi
   if [[ -n "${LINK_DOMAIN:-}" ]]; then
     say "Подписка: link_domain=$LINK_DOMAIN"
@@ -65,6 +62,9 @@ if [[ -f "$CFG" ]] && command -v jq >/dev/null; then
         '.link_domain = $d | .link_domain_subs = (if $s == "" then [] else [$s] end)' \
         "$CFG" >"$tmp" && mv "$tmp" "$CFG"
     fi
+  fi
+  if [[ -n "${PUBLIC_HOST:-}" ]] && [[ -x "$ANTITSPU_DIR/scripts/sync-public-host.sh" ]]; then
+    bash "$ANTITSPU_DIR/scripts/sync-public-host.sh" || warn "sync-public-host: частично (см. выше); overlay kit-sub применён"
   fi
   systemctl restart kit-sub 2>/dev/null || true
 fi

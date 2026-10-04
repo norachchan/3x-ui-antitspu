@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # После смены PUBLIC_HOST в env: subURI в панели, kit.env, externalProxy в inbound'ах.
-set -Eeuo pipefail
+set -Euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=lib-ui.sh
@@ -15,11 +15,12 @@ NEW="${PUBLIC_HOST:-}"
 
 say() { printf '==> %s\n' "$*"; }
 
-python3 - "$NEW" /etc/x-ui/x-ui.db <<'PY'
+if ! python3 - "$NEW" /etc/x-ui/x-ui.db <<'PY'
 import json, sqlite3, sys, urllib.parse
 
 new_host, db_path = sys.argv[1], sys.argv[2]
 con = sqlite3.connect(db_path)
+con.row_factory = sqlite3.Row
 
 def setting(k, default=""):
     row = con.execute("select value from settings where key=?", (k,)).fetchone()
@@ -30,6 +31,13 @@ def set_setting(k, v):
         con.execute("update settings set value=? where key=?", (v, k))
     else:
         con.execute("insert into settings (key, value) values (?, ?)", (k, v))
+
+def stream_col():
+    names = {r[1] for r in con.execute("pragma table_info(inbounds)")}
+    for c in ("stream_settings", "streamSettings"):
+        if c in names:
+            return c
+    return None
 
 old = ""
 uri = setting("subURI", "").strip()
@@ -45,31 +53,36 @@ if uri:
         print(f"subURI: {old} -> {new_host}", file=sys.stderr)
 
 dom = setting("subDomain", "").strip()
-if dom != new_host and (not dom or dom == old or dom.replace(".", "").isdigit() is False):
+if dom != new_host and (not dom or dom == old or not dom.replace(".", "").isdigit()):
     set_setting("subDomain", new_host)
 
-# externalProxy.dest в stream_settings
-rows = con.execute("select id, stream_settings from inbounds").fetchall()
-for iid, raw in rows:
-    if not raw:
-        continue
-    try:
-        st = json.loads(raw)
-    except json.JSONDecodeError:
-        continue
-    changed = False
-    for ep in st.get("externalProxy") or []:
-        if not isinstance(ep, dict):
+scol = stream_col()
+if scol and old:
+    rows = con.execute(f"select id, {scol} as st from inbounds").fetchall()
+    for row in rows:
+        raw = row["st"]
+        if not raw:
             continue
-        d = ep.get("dest")
-        if old and d == old:
-            ep["dest"] = new_host
-            changed = True
-    if changed:
-        con.execute("update inbounds set stream_settings=? where id=?", (json.dumps(st, separators=(",", ":")), iid))
+        try:
+            st = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        changed = False
+        for ep in st.get("externalProxy") or []:
+            if isinstance(ep, dict) and ep.get("dest") == old:
+                ep["dest"] = new_host
+                changed = True
+        if changed:
+            con.execute(
+                f"update inbounds set {scol}=? where id=?",
+                (json.dumps(st, separators=(",", ":")), row["id"]),
+            )
 
 con.commit()
 PY
+then
+  warn "Не обновил subURI в SQLite (панель) — проверьте /etc/x-ui/x-ui.db"
+fi
 
 if [[ -f /etc/kit/kit.env ]]; then
   old_host="$(grep -E '^HOST=' /etc/kit/kit.env | head -1 | cut -d= -f2- | tr -d "'\"" || true)"
