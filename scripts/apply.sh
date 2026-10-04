@@ -55,8 +55,9 @@ if [[ -f "$CFG" ]] && command -v jq >/dev/null; then
   systemctl restart kit-sub 2>/dev/null || true
 fi
 
-if [[ -n "${NODE_REMARK:-}" ]] && [[ -x "$ANTITSPU_DIR/scripts/rename-inbounds.sh" ]]; then
-  bash "$ANTITSPU_DIR/scripts/rename-inbounds.sh" || say "Предупреждение: remark не обновлён (см. выше)"
+if [[ -n "${NODE_REMARK:-}" && "${NODE_REMARK_APPLY:-0}" == 1 ]] \
+  && [[ -x "$ANTITSPU_DIR/scripts/rename-inbounds.sh" ]]; then
+  bash "$ANTITSPU_DIR/scripts/rename-inbounds.sh" || warn "remark не обновлён"
 fi
 
 if [[ -f "$ANTITSPU_DIR/scripts/ip-cert-sync.sh" ]]; then
