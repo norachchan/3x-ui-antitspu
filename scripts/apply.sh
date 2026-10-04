@@ -140,3 +140,7 @@ if [[ -n "${XRAY_VERSION:-}" ]] && [[ -x "$ANTITSPU_DIR/scripts/upgrade-xray.sh"
   bash "$ANTITSPU_DIR/scripts/upgrade-xray.sh" "$XRAY_VERSION"
 fi
 
+if [[ -x "$ANTITSPU_DIR/scripts/ensure-api-token.sh" ]]; then
+  bash "$ANTITSPU_DIR/scripts/ensure-api-token.sh" || true
+fi
+

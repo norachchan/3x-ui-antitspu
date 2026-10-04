@@ -13,7 +13,7 @@ DB=/etc/x-ui/x-ui.db
 
 [[ -f "$DB" ]] || { warn "Панель не найдена."; exit 0; }
 
-read -r PANEL_URL USER PASS SUB_URL PROTO_COUNT PROTO_LIST NAME OVERLAY_OK <<EOF
+read -r PANEL_URL USER PASS SUB_URL PROTO_COUNT PROTO_LIST NAME OVERLAY_OK API_TOKEN <<EOF
 $(python3 - "$DB" "$ENV" <<'PY'
 import json, os, sqlite3, sys, urllib.parse
 
@@ -31,7 +31,7 @@ def is_ip(h):
     return len(parts) == 4 and all(p.isdigit() and 0 <= int(p) <= 255 for p in parts)
 
 env = {}
-panel = user = passwd = ""
+panel = user = passwd = api_token = ""
 if os.path.isfile(env_path):
     for line in open(env_path):
         line = line.strip()
@@ -45,6 +45,8 @@ if os.path.isfile(env_path):
             user = v
         elif k == "XUI_PASSWORD":
             passwd = v
+        elif k == "XUI_API_TOKEN":
+            api_token = v
 
 port = env.get("XUI_PANEL_PORT") or setting("webPort", "2053")
 base = env.get("XUI_WEB_BASE_PATH") or setting("webBasePath", "/")
@@ -156,7 +158,7 @@ try:
 except OSError:
     pass
 
-print(panel, user, passwd, sub_url, count, " ".join(labels), name, overlay, sep="\t")
+print(panel, user, passwd, sub_url, count, " ".join(labels), name, overlay, api_token, sep="\t")
 PY
 )
 EOF
@@ -172,13 +174,18 @@ if [[ -f "$RESULT" ]]; then
   fi
 fi
 
-if [[ -f "$RESULT" ]] && ! grep -q '3x-ui-antitspu' "$RESULT" 2>/dev/null; then
+if [[ -f "$RESULT" ]]; then
   umask 077
-  {
-    echo
-    echo "--- 3x-ui-antitspu overlay ---"
-    [[ "$OVERLAY_OK" == 1 ]] && echo "Anti-TSPU: SNI, xmux ≤3 в подписке."
-  } >>"$RESULT"
+  if ! grep -q '3x-ui-antitspu' "$RESULT" 2>/dev/null; then
+    {
+      echo
+      echo "--- 3x-ui-antitspu overlay ---"
+      [[ "$OVERLAY_OK" == 1 ]] && echo "Anti-TSPU: SNI, xmux ≤3 в подписке."
+    } >>"$RESULT"
+  fi
+  if [[ -n "${API_TOKEN:-}" ]] && ! grep -q '^API:' "$RESULT" 2>/dev/null; then
+    echo "API:     $API_TOKEN" >>"$RESULT"
+  fi
 fi
 
 if [[ "$MODE" == compact ]]; then
@@ -211,6 +218,10 @@ else
 fi
 echo "Логин:   ${B}${USER}${N}"
 echo "Пароль:  ${B}${PASS}${N}"
+if [[ -n "${API_TOKEN:-}" ]]; then
+  echo "API:     ${B}${API_TOKEN}${N}"
+  echo "${D}Заголовок: Authorization: Bearer <API>${N}"
+fi
 echo
 if [[ -n "$SUB_URL" && "$SUB_URL" != *'<'* ]]; then
   echo "Подписка для ${B}${NAME}${N} – все протоколы одной ссылкой. Вставьте в Hiddify, v2rayN, Happ,"

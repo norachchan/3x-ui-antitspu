@@ -79,6 +79,7 @@ die()  { printf '%s\n' "${R}✗${N}  $*" >&2; exit 1; }
 trap 'die "Ошибка в строке $LINENO. Исправьте причину и запустите скрипт ещё раз."' ERR
 
 rand_str() { openssl rand -base64 48 | tr -dc 'a-zA-Z0-9' | head -c "$1"; }
+gen_alnum() { local length="${1:-16}"; if command -v openssl >/dev/null 2>&1; then openssl rand -base64 $((length * 2)) | tr -dc 'a-zA-Z0-9' | head -c "$length"; else tr -dc 'a-zA-Z0-9' </dev/urandom | head -c "$length"; fi; }
 port_busy() { ss -H -ln"${2:0:1}" "sport = :$1" 2>/dev/null | grep -q .; }
 
 public_ip() {
@@ -432,9 +433,9 @@ main() {
   # --- официальный установщик 3X-UI с закреплённой версией ---
   local panel_port panel_path panel_user panel_pass
   panel_port=$(free_port)
-  panel_path=$(rand_str 18)
-  panel_user=$(rand_str 10)
-  panel_pass=$(rand_str 20)
+  panel_path=$(gen_alnum 18)
+  panel_user=$(gen_alnum 12)
+  panel_pass=$(gen_alnum 60)
   if [[ -f $XUI_ENV ]]; then
     say "3X-UI уже стоит после прошлого запуска – продолжаю с создания подключений"
   else
