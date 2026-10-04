@@ -69,16 +69,29 @@ if [[ -f "$CFG" ]] && command -v jq >/dev/null; then
   systemctl restart kit-sub 2>/dev/null || true
 fi
 
-if [[ -n "${NODE_REMARK:-}" && "${NODE_REMARK_APPLY:-0}" == 1 ]] \
-  && [[ -x "$ANTITSPU_DIR/scripts/rename-inbounds.sh" ]]; then
-  bash "$ANTITSPU_DIR/scripts/rename-inbounds.sh" || warn "remark не обновлён"
+if [[ -n "${NODE_REMARK:-}" ]]; then
+  style="${NODE_REMARK_STYLE:-unified}"
+  case "$style" in
+    kit)
+      [[ -x "$ANTITSPU_DIR/scripts/restore-kit-remarks.sh" ]] \
+        && bash "$ANTITSPU_DIR/scripts/restore-kit-remarks.sh" || warn "remark kit не обновлён"
+      ;;
+    suffix|protocol)
+      [[ -x "$ANTITSPU_DIR/scripts/rename-inbounds.sh" ]] \
+        && bash "$ANTITSPU_DIR/scripts/rename-inbounds.sh" || warn "remark suffix не обновлён"
+      ;;
+    unified|single|*)
+      [[ -x "$ANTITSPU_DIR/scripts/unify-inbound-remark.sh" ]] \
+        && bash "$ANTITSPU_DIR/scripts/unify-inbound-remark.sh" || warn "remark unified не обновлён"
+      ;;
+  esac
 fi
 
 if [[ -f "$ANTITSPU_DIR/scripts/ip-cert-sync.sh" ]]; then
   install -m 755 "$ANTITSPU_DIR/scripts/ip-cert-sync.sh" /usr/local/sbin/3x-ui-antitspu-ip-cert-sync.sh
 fi
 
-install -m 755 "$ANTITSPU_DIR/scripts/reapply-sub.sh" /usr/local/sbin/3x-ui-antitspu-reapply.sh
+install -m 755 "$ANTITSPU_DIR/scripts/post-kit-hook.sh" /usr/local/sbin/3x-ui-antitspu-reapply.sh
 mkdir -p /etc/systemd/system/kit-update.service.d
 cat > /etc/systemd/system/kit-update.service.d/antitspu.conf <<EOF
 [Service]

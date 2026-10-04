@@ -84,8 +84,9 @@ echo
 ask SELFSTEAL_DOMAIN "Self-steal REALITY (nginx zz-selfsteal), Enter = пропустить" "$steal_def"
 
 echo
-echo "Имя узла (префикс remark): в панели будет «имя · REALITY», «имя · XHTTP» и т.д."
-echo "${D}Одно имя на все inbound без протокола даёт в панели «(imported 1)» вместо типа.${N}"
+echo "Имя узла (remark на все inbound, как poland на проде):"
+echo "${D}В списке панели может быть «(imported 1)» — для клиентов это нормально.${N}"
+echo "${D}Другое оформление: NODE_REMARK_STYLE=suffix или kit в /etc/3x-ui-antitspu.env${N}"
 node_def="$(cur NODE_REMARK)"
 ask NODE_REMARK "  NODE_REMARK" "$node_def"
 
