@@ -25,6 +25,7 @@ sleep 1
 [[ -n "${XUI_API_TOKEN:-}" ]] || die "Нет API token — bash scripts/rotate-panel-bootstrap.sh"
 
 API="$(panel_api_check)" || die "API панели не отвечает. Проверьте: systemctl status x-ui; journalctl -u x-ui -n 20; cat /etc/x-ui/install-result.env"
+export PANEL_API_URL="$API"
 say "API панели: $API"
 
 ENV=/etc/3x-ui-antitspu.env
@@ -34,11 +35,8 @@ HOST="$(resolve_server_ip 2>/dev/null || true)"
 [[ -n "$HOST" ]] || HOST="${XUI_SERVER_IP:-}"
 [[ -n "$HOST" ]] || HOST="$(curl -4 -fsS ifconfig.me 2>/dev/null || true)"
 [[ -n "$HOST" ]] || die "Не удалось определить IP сервера для KIT"
-sni_arg=()
-if [[ -f "$ENV" ]]; then
-  dom="${LINK_DOMAIN:-}"
-  [[ -n "$dom" && ! "$dom" =~ ^[0-9.]+$ ]] && sni_arg=(--sni "$dom")
-fi
+# REALITY маскируется под чужой SNI; домен подписки — в overlay (LINK_DOMAIN).
+sni_arg=(--sni dl.google.com)
 
 TOKEN="$XUI_API_TOKEN"
 LOG=/var/log/kit-inbounds-rebuild.log

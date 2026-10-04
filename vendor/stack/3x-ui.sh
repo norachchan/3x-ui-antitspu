@@ -253,11 +253,16 @@ api() { # METHOD path [json]
 
 wait_panel() {
   local i
-  for i in $(seq 1 60); do
-    curl -fsk -m 5 -o /dev/null -H "Authorization: Bearer $TOKEN" "$API/server/getNewUUID" 2>/dev/null && return 0
+  for i in $(seq 1 45); do
+    if curl -fsk -m 8 -o /dev/null -H "Authorization: Bearer $TOKEN" "$API/server/getNewUUID" 2>/dev/null; then
+      return 0
+    fi
+    if (( i == 1 || i % 5 == 0 )); then
+      say "Жду API панели… ($i/45)"
+    fi
     sleep 2
   done
-  die "Панель не отвечает. Лог: journalctl -u x-ui -n 50"
+  die "Панель не отвечает ($API). Проверьте: systemctl status x-ui; bash /opt/3x-ui-antitspu/scripts/fix-install-result-paths.sh; journalctl -u x-ui -n 30"
 }
 
 # ---------- установка ----------
@@ -406,24 +411,25 @@ main() {
     UFW=no
     if [[ -z $SNI ]]; then
       SNI=dl.google.com
-      if [[ -f /etc/3x-ui-antitspu.env ]]; then
-        # shellcheck disable=SC1091
-        . /etc/3x-ui-antitspu.env
-        [[ -n "${LINK_DOMAIN:-}" && ! "${LINK_DOMAIN}" =~ ^[0-9.]+$ ]] && SNI=$LINK_DOMAIN
-      fi
     fi
     SNI2=${SNI2:-$SNI}
     SNI3=${SNI3:-www.cloudflare.com}
-    say "Маскировка: ${B}$SNI${N}"
+    say "Маскировка REALITY: ${B}$SNI${N}"
     [[ -f $XUI_ENV ]] || die "Нет $XUI_ENV — сначала установите панель"
+    say "Подключаюсь к панели…"
     connect_panel
+    say "Создаю inbound'ы (${#PROTOS[@]} протоколов)…"
     setup_tls_cert
     EXISTING=$(api GET inbounds/list)
     SUBID=""
     local p
-    for p in "${PROTOS[@]}"; do "proto_$p"; done
+    for p in "${PROTOS[@]}"; do
+      say "  протокол: $p"
+      "proto_$p"
+    done
     ensure_user
     setup_subscription
+    say "nginx (443)…"
     setup_nginx
     say "KIT inbound'ы: ${CREATED[*]:-—}"
     exit 0
@@ -647,11 +653,27 @@ connect_panel() {
   # shellcheck disable=SC1090
   . "$XUI_ENV"
   TOKEN=$XUI_API_TOKEN
-  local scheme
+  if [[ -n "${PANEL_API_URL:-}" ]]; then
+    API="$PANEL_API_URL"
+    say "API: $API"
+    wait_panel
+    return
+  fi
+  local scheme base bases=() b
+  base=${XUI_WEB_BASE_PATH:-/}
+  [[ $base == /* ]] || base="/$base"
+  bases+=("${base%/}/")
+  bases+=("${base%/}")
+  bases+=("${base#/}")
   for scheme in https http; do
-    API="$scheme://127.0.0.1:$XUI_PANEL_PORT/$XUI_WEB_BASE_PATH/panel/api"
-    curl -fsk -m 5 -o /dev/null -H "Authorization: Bearer $XUI_API_TOKEN" "$API/server/getNewUUID" 2>/dev/null && break
+    for b in "${bases[@]}"; do
+      b=${b#/}
+      [[ -n $b ]] && b="/$b"
+      API="$scheme://127.0.0.1:$XUI_PANEL_PORT${b}/panel/api"
+      curl -fsk -m 8 -o /dev/null -H "Authorization: Bearer $XUI_API_TOKEN" "$API/server/getNewUUID" 2>/dev/null && break 2
+    done
   done
+  [[ -n ${API:-} ]] || die "Не удалось найти URL API панели (см. $XUI_ENV)"
   wait_panel
 }
 
@@ -1129,7 +1151,11 @@ HTML
 
 setup_nginx() {
   say "Настраиваю nginx: всё TCP через порт 443"
-  apt-get install -y -qq nginx libnginx-mod-stream >/dev/null
+  if ! command -v nginx >/dev/null; then
+    export DEBIAN_FRONTEND=noninteractive
+    wait_apt_idle
+    apt-get install -y -qq nginx libnginx-mod-stream >/dev/null
+  fi
   # Порт 80 нужен Let's Encrypt для продления сертификата – сайт nginx по умолчанию убираем.
   rm -f /etc/nginx/sites-enabled/default
 
