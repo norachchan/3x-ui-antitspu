@@ -56,7 +56,8 @@ SNI_CANDIDATES=(dl.google.com www.amazon.com www.samsung.com www.yahoo.com)
 ALL_PROTOS=(reality hy2 xhttp ws trojan vmess ss tuic wg awg awg3 mtproto)
 # Обычный WireGuard легко распознаётся сетевым оборудованием и работает нестабильно
 # (проверено 2026-09-27: рукопожатие доходит до сервера, ответ – нет). По умолчанию не ставим.
-DEFAULT_PROTOS=(reality hy2 xhttp ws trojan vmess ss tuic awg awg3 mtproto)
+# Как прод (poland): 8 inbound'ов, без AmneziaWG и MTProto.
+DEFAULT_PROTOS=(reality hy2 xhttp ws trojan vmess ss tuic)
 declare -A PORTS=([xhttp]=8443 [ws]=2053 [trojan]=2083 [vmess]=2087 [ss]=8388 [tuic]=8444 [wg]=51820 [awg]=51821 [awg3]=51822 [mtproto]=8445)
 PROTOS=(); CREATED=(); OPEN=()
 # Режим «всё TCP на 443»: nginx разводит по SNI и путям, подключения слушают только localhost.
@@ -1452,7 +1453,7 @@ usage() {
   cat <<EOF
 3X-UI со всеми протоколами одной командой
 
-  --protocols all     all (по умолчанию – всё, кроме WireGuard), minimal (только REALITY)
+  --protocols all     8 протоколов как на проде (без AWG/MTProto), minimal (только REALITY)
                       или список через запятую: reality,hy2,xhttp,ws,trojan,vmess,ss,tuic,wg,awg,awg3,mtproto
                       (обычный WireGuard работает нестабильно – включайте его, только если сервер и
                       пользователи за границей)

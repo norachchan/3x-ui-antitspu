@@ -55,7 +55,8 @@ while read -r id remark; do
 done < <(jq -r '.[] | select((.remark // "") | test("^exit-") | not) | "\(.id)\t\(.remark)"' <<<"$list")
 say "Удалено inbound'ов: $n_del"
 
-say "Разворачиваю inbound'ы KIT (быстрый режим, --protocols all)"
+kit_protos="${KIT_PROTOCOLS:-reality,hy2,xhttp,ws,trojan,vmess,ss,tuic}"
+say "Разворачиваю inbound'ы KIT (8 как на проде: $kit_protos)"
 [[ -x "$ROOT/scripts/patch-vendor.sh" ]] && bash "$ROOT/scripts/patch-vendor.sh" >/dev/null 2>&1 || true
 if ! grep -q 'KIT: разворачиваю inbound' "$ROOT/vendor/stack/3x-ui.sh" 2>/dev/null; then
   die "В vendor нет KIT fast-path — на сервере: cd $ROOT && git pull"
@@ -65,7 +66,7 @@ extra=()
   extra=($INSTALLER_EXTRA_ARGS)
 export KIT_INBOUNDS_ONLY=1
 say "Лог: $LOG"
-if ! bash "$ROOT/vendor/stack/3x-ui.sh" -y --host "$HOST" --protocols all "${sni_arg[@]}" "${extra[@]}" 2>&1 | tee "$LOG"; then
+if ! bash "$ROOT/vendor/stack/3x-ui.sh" -y --host "$HOST" --protocols "$kit_protos" "${sni_arg[@]}" "${extra[@]}" 2>&1 | tee "$LOG"; then
   warn "vendor завершился с ошибкой — последние строки:"
   tail -25 "$LOG" >&2 || true
   die "См. полный лог: $LOG"
