@@ -19,8 +19,7 @@ export ANTITSPU_SKIP_PROMPT=1
 
 [[ -x "$ROOT/scripts/fix-install-result-paths.sh" ]] && bash "$ROOT/scripts/fix-install-result-paths.sh"
 bash "$ROOT/scripts/ensure-api-token.sh" 2>/dev/null || true
-systemctl restart x-ui 2>/dev/null || true
-sleep 2
+sleep 1
 # shellcheck disable=SC1091
 . /etc/x-ui/install-result.env
 [[ -n "${XUI_API_TOKEN:-}" ]] || die "Нет API token — bash scripts/rotate-panel-bootstrap.sh"
@@ -31,9 +30,15 @@ say "API панели: $API"
 ENV=/etc/3x-ui-antitspu.env
 [[ -f "$ENV" ]] && # shellcheck disable=SC1091
   . "$ENV"
-HOST="${PUBLIC_HOST:-${XUI_SERVER_IP:-}}"
-[[ -n "$HOST" ]] || HOST="$(resolve_server_ip 2>/dev/null || curl -4 -fsS ifconfig.me)"
-[[ -n "$HOST" ]] || die "Укажите PUBLIC_HOST в $ENV"
+HOST="$(resolve_server_ip 2>/dev/null || true)"
+[[ -n "$HOST" ]] || HOST="${XUI_SERVER_IP:-}"
+[[ -n "$HOST" ]] || HOST="$(curl -4 -fsS ifconfig.me 2>/dev/null || true)"
+[[ -n "$HOST" ]] || die "Не удалось определить IP сервера для KIT"
+sni_arg=()
+if [[ -f "$ENV" ]]; then
+  dom="${LINK_DOMAIN:-}"
+  [[ -n "$dom" && ! "$dom" =~ ^[0-9.]+$ ]] && sni_arg=(--sni "$dom")
+fi
 
 TOKEN="$XUI_API_TOKEN"
 LOG=/var/log/kit-inbounds-rebuild.log
@@ -52,12 +57,17 @@ while read -r id remark; do
 done < <(jq -r '.[] | select((.remark // "") | test("^exit-") | not) | "\(.id)\t\(.remark)"' <<<"$list")
 say "Удалено inbound'ов: $n_del"
 
-say "Разворачиваю inbound'ы KIT (как прод, --protocols all)"
+say "Разворачиваю inbound'ы KIT (быстрый режим, --protocols all)"
+[[ -x "$ROOT/scripts/patch-vendor.sh" ]] && bash "$ROOT/scripts/patch-vendor.sh" >/dev/null 2>&1 || true
+if ! grep -q 'KIT: разворачиваю inbound' "$ROOT/vendor/stack/3x-ui.sh" 2>/dev/null; then
+  die "В vendor нет KIT fast-path — на сервере: cd $ROOT && git pull"
+fi
 extra=()
 [[ -n "${INSTALLER_EXTRA_ARGS:-}" ]] && # shellcheck disable=SC2206
   extra=($INSTALLER_EXTRA_ARGS)
 export KIT_INBOUNDS_ONLY=1
-if ! bash "$ROOT/vendor/stack/3x-ui.sh" -y --host "$HOST" --protocols all "${extra[@]}" >"$LOG" 2>&1; then
+say "Лог: $LOG"
+if ! bash "$ROOT/vendor/stack/3x-ui.sh" -y --host "$HOST" --protocols all "${sni_arg[@]}" "${extra[@]}" 2>&1 | tee "$LOG"; then
   warn "vendor завершился с ошибкой — последние строки:"
   tail -25 "$LOG" >&2 || true
   die "См. полный лог: $LOG"

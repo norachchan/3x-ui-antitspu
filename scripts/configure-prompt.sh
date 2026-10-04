@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Интерактивно заполнить /etc/3x-ui-antitspu.env (домен / IP / имя узла в панели).
+# Два вопроса: домен/IP в подписке и remark узла. Остальное — автоматически.
 set -Eeuo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -33,20 +33,8 @@ PY
 
 cur() { grep -E "^${1}=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' || true; }
 
-ask() {
-  local var="$1" prompt="$2" default="$3" val
-  if [[ -n "$default" ]]; then
-    read -r -p "$prompt [$default]: " val || true
-    val="${val:-$default}"
-  else
-    read -r -p "$prompt: " val || true
-  fi
-  set_env "$var" "$val"
-}
-
 set_env() {
   local k="$1" v="$2" line
-  # %q — иначе LINK_DOMAIN_SUBS=* ломает source и jq
   line="$(printf '%s=%q' "$k" "$v")"
   if grep -q "^${k}=" "$ENV_FILE"; then
     sed -i "s|^${k}=.*|${line}|" "$ENV_FILE"
@@ -55,40 +43,46 @@ set_env() {
   fi
 }
 
-antitspu_banner
-echo "Настройка адреса в ссылках и имени узла (Enter — оставить по умолчанию)."
-echo "${D}Этот хост попадёт в URL подписки и (после apply) в subURI панели.${N}"
-echo "${D}LINK_DOMAIN — только подмена домена внутри ссылок WS/gRPC; панель на :40455 остаётся с IP, пока нет TLS на домен.${N}"
-echo
+is_ipv4() {
+  [[ "$1" =~ ^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3}$ ]]
+}
 
-ip_def="$(detect_host_from_db)"
-[[ -z "$ip_def" ]] && ip_def="$(default_ip)"
-[[ -n "$(cur PUBLIC_HOST)" ]] && ip_def="$(cur PUBLIC_HOST)"
+apply_host_choice() {
+  local val="$1"
+  set_env PUBLIC_HOST "$val"
+  if is_ipv4 "$val"; then
+    set_env LINK_DOMAIN ""
+    set_env SELFSTEAL_DOMAIN ""
+    set_env LINK_DOMAIN_SUBS '*'
+  else
+    set_env LINK_DOMAIN "$val"
+    set_env LINK_DOMAIN_SUBS '*'
+    set_env SELFSTEAL_DOMAIN "$val"
+  fi
+}
 
-ask PUBLIC_HOST "IP или хост в подписке (как в ссылках)" "$ip_def"
-
-echo
-echo "Домен с A-записью на этот сервер (Enter = не использовать):"
-dom_def="$(cur LINK_DOMAIN)"
-ask LINK_DOMAIN "  LINK_DOMAIN (WS/gRPC в подписке)" "$dom_def"
-
-if [[ -n "$(cur LINK_DOMAIN)" ]] || grep -q '^LINK_DOMAIN=' "$ENV_FILE"; then
-  subs_def="$(cur LINK_DOMAIN_SUBS)"
-  [[ -z "$subs_def" ]] && subs_def='*'
-  ask LINK_DOMAIN_SUBS '  Кому подставлять домен (подписки, * = всем)' "$subs_def"
+# Прод Польши: не переспрашивать и не менять env при install/apply.
+if [[ "$(cur NODE_REMARK)" == "poland" && -n "$(cur PUBLIC_HOST)" ]]; then
+  exit 0
 fi
 
-steal_def="$(cur SELFSTEAL_DOMAIN)"
-[[ -z "$steal_def" && -n "$(cur LINK_DOMAIN)" ]] && steal_def="$(cur LINK_DOMAIN)"
-echo
-ask SELFSTEAL_DOMAIN "Self-steal REALITY (nginx zz-selfsteal), Enter = пропустить" "$steal_def"
+host_def="$(detect_host_from_db)"
+[[ -z "$host_def" ]] && host_def="$(default_ip)"
+[[ -n "$(cur PUBLIC_HOST)" ]] && host_def="$(cur PUBLIC_HOST)"
 
-echo
-echo "Имя узла (remark на все inbound, как poland на проде):"
-echo "${D}В списке панели может быть «(imported 1)» — для клиентов это нормально.${N}"
-echo "${D}Другое оформление: NODE_REMARK_STYLE=suffix или kit в /etc/3x-ui-antitspu.env${N}"
-node_def="$(cur NODE_REMARK)"
-ask NODE_REMARK "  NODE_REMARK" "$node_def"
+val=""
+read -r -p "Домен или IP для подписки и ссылок [$host_def]: " val || true
+val="${val:-$host_def}"
+[[ -n "$val" ]] || { warn "Пустое значение — оставляю $ENV_FILE без изменений"; exit 0; }
 
-echo
+apply_host_choice "$val"
+
+remark_def="$(cur NODE_REMARK)"
+remark=""
+read -r -p "Имя узла (remark на все inbound) [$remark_def]: " remark || true
+remark="${remark:-$remark_def}"
+if [[ -n "$remark" ]]; then
+  set_env NODE_REMARK "$remark"
+fi
+
 say "Сохранено в $ENV_FILE"

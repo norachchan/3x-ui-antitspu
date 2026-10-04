@@ -394,6 +394,41 @@ main() {
     install -m 600 "$ukey" /root/cert/custom/privkey.pem
   fi
 
+  if [[ "${KIT_INBOUNDS_ONLY:-0}" == 1 ]]; then
+    say "KIT: разворачиваю inbound'ы (быстрый режим, без apt)"
+    HOST=${HOST:-$(public_ip)}
+    [[ -n $HOST ]] || die "Укажите --host IP или домен"
+    TRUSTED=yes
+    PANEL_SSL=ip
+    SINGLE=yes
+    OPEN=()
+    CREATED=()
+    UFW=no
+    if [[ -z $SNI ]]; then
+      SNI=dl.google.com
+      if [[ -f /etc/3x-ui-antitspu.env ]]; then
+        # shellcheck disable=SC1091
+        . /etc/3x-ui-antitspu.env
+        [[ -n "${LINK_DOMAIN:-}" && ! "${LINK_DOMAIN}" =~ ^[0-9.]+$ ]] && SNI=$LINK_DOMAIN
+      fi
+    fi
+    SNI2=${SNI2:-$SNI}
+    SNI3=${SNI3:-www.cloudflare.com}
+    say "Маскировка: ${B}$SNI${N}"
+    [[ -f $XUI_ENV ]] || die "Нет $XUI_ENV — сначала установите панель"
+    connect_panel
+    setup_tls_cert
+    EXISTING=$(api GET inbounds/list)
+    SUBID=""
+    local p
+    for p in "${PROTOS[@]}"; do "proto_$p"; done
+    ensure_user
+    setup_subscription
+    setup_nginx
+    say "KIT inbound'ы: ${CREATED[*]:-—}"
+    exit 0
+  fi
+
   say "Ставлю пакеты: curl, jq, openssl, qrencode, ufw"
   export DEBIAN_FRONTEND=noninteractive
   wait_apt_idle

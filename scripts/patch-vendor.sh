@@ -21,4 +21,7 @@ sed -i \
   -e 's|https://github.com/itsnotkubrick/3X-UI_KIT|https://github.com/norachchan/3x-ui-antitspu|g' \
   -e 's/if \[\[ -f \$RESULT && -x \/usr\/local\/x-ui\/x-ui \]\]; then$/if [[ -f $RESULT \&\& -x \/usr\/local\/x-ui\/x-ui \&\& "${KIT_INBOUNDS_ONLY:-0}" != 1 ]]; then/' \
   "$F"
+if ! grep -q 'KIT: разворачиваю inbound' "$F"; then
+  echo "warn: vendor missing KIT_INBOUNDS_ONLY fast path — run sync-vendor or merge manually" >&2
+fi
 bash -n "$F"

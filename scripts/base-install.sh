@@ -15,9 +15,13 @@ SUB_BASE="$ROOT/vendor/stack/sub-proxy-base.py"
 
 export KIT_SUB_SRC="$SUB_BASE"
 
-args=()
+args=(-y)
 [[ -n "${PUBLIC_HOST:-}" ]] && args+=(--host "$PUBLIC_HOST")
-[[ -n "${LINK_DOMAIN:-}" ]] && args+=(--domain "$LINK_DOMAIN")
+if [[ -n "${LINK_DOMAIN:-}" ]]; then
+  args+=(--domain "$LINK_DOMAIN")
+else
+  args+=(--sni dl.google.com)
+fi
 [[ -n "${INSTALLER_EXTRA_ARGS:-}" ]] && # shellcheck disable=SC2206
   args+=($INSTALLER_EXTRA_ARGS)
 

@@ -36,6 +36,8 @@ if [[ "${ANTITSPU_REEXEC:-0}" != 1 ]]; then
   fi
 fi
 
+[[ -x "$INSTALL_DIR/scripts/patch-vendor.sh" ]] && bash "$INSTALL_DIR/scripts/patch-vendor.sh" >/dev/null 2>&1 || true
+
 # shellcheck source=scripts/lib-ui.sh
 . "$INSTALL_DIR/scripts/lib-ui.sh"
 
