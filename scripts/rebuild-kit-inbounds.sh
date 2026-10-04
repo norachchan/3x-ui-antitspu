@@ -18,12 +18,15 @@ export ANTITSPU_SKIP_PROMPT=1
 [[ -f /etc/x-ui/install-result.env ]] || die "Сначала установите панель (install.sh)."
 
 [[ -x "$ROOT/scripts/fix-install-result-paths.sh" ]] && bash "$ROOT/scripts/fix-install-result-paths.sh"
+bash "$ROOT/scripts/ensure-api-token.sh" 2>/dev/null || true
+systemctl restart x-ui 2>/dev/null || true
+sleep 2
 # shellcheck disable=SC1091
 . /etc/x-ui/install-result.env
-[[ -n "${XUI_API_TOKEN:-}" ]] || { bash "$ROOT/scripts/ensure-api-token.sh"; . /etc/x-ui/install-result.env; }
 [[ -n "${XUI_API_TOKEN:-}" ]] || die "Нет API token — bash scripts/rotate-panel-bootstrap.sh"
 
-panel_api_check || die "API панели не отвечает (токен или webBasePath). Проверьте /etc/x-ui/install-result.env"
+API="$(panel_api_check)" || die "API панели не отвечает. Проверьте: systemctl status x-ui; journalctl -u x-ui -n 20; cat /etc/x-ui/install-result.env"
+say "API панели: $API"
 
 ENV=/etc/3x-ui-antitspu.env
 [[ -f "$ENV" ]] && # shellcheck disable=SC1091
@@ -32,7 +35,6 @@ HOST="${PUBLIC_HOST:-${XUI_SERVER_IP:-}}"
 [[ -n "$HOST" ]] || HOST="$(resolve_server_ip 2>/dev/null || curl -4 -fsS ifconfig.me)"
 [[ -n "$HOST" ]] || die "Укажите PUBLIC_HOST в $ENV"
 
-API="$(panel_api_url)"
 TOKEN="$XUI_API_TOKEN"
 LOG=/var/log/kit-inbounds-rebuild.log
 

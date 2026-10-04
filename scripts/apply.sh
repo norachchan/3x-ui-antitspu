@@ -69,6 +69,9 @@ if [[ -f "$CFG" ]] && command -v jq >/dev/null; then
   systemctl restart kit-sub 2>/dev/null || true
 fi
 
+if [[ -x "$ANTITSPU_DIR/scripts/fix-install-result-paths.sh" ]]; then
+  bash "$ANTITSPU_DIR/scripts/fix-install-result-paths.sh" 2>/dev/null || true
+fi
 if [[ -x "$ANTITSPU_DIR/scripts/ensure-kit-inbounds.sh" ]]; then
   bash "$ANTITSPU_DIR/scripts/ensure-kit-inbounds.sh" || warn "KIT inbound'ы не восстановлены"
 fi

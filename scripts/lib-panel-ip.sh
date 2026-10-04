@@ -56,8 +56,16 @@ build_panel_access_url() {
   local envf=/etc/x-ui/install-result.env host port base url
   [[ -f "$envf" ]] || return 1
   host="$(panel_public_host)"
-  port="$(grep -m1 '^XUI_PANEL_PORT=' "$envf" 2>/dev/null | cut -d= -f2- | tr -d "'\"")"
-  base="$(grep -m1 '^XUI_WEB_BASE_PATH=' "$envf" 2>/dev/null | cut -d= -f2- | tr -d "'\"")"
+  if [[ -f /etc/x-ui/x-ui.db ]]; then
+    read -r port base <<EOF
+$(python3 -c "import sqlite3;c=sqlite3.connect('/etc/x-ui/x-ui.db');
+def s(k,d=''):r=c.execute('select value from settings where key=?',(k,)).fetchone();return r[0] if r and r[0] is not None else d
+p=s('webPort','');b=s('webBasePath','/');
+print(p,b)" 2>/dev/null || echo " ")
+EOF
+  fi
+  [[ -n "${port:-}" ]] || port="$(grep -m1 '^XUI_PANEL_PORT=' "$envf" 2>/dev/null | cut -d= -f2- | tr -d "'\"")"
+  [[ -n "${base:-}" ]] || base="$(grep -m1 '^XUI_WEB_BASE_PATH=' "$envf" 2>/dev/null | cut -d= -f2- | tr -d "'\"")"
   [[ -n "$host" ]] || return 1
   [[ -n "$base" ]] || base="/"
   if panel_on_443; then
