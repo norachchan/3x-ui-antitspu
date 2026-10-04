@@ -31,7 +31,8 @@ API="https://127.0.0.1:${XUI_PANEL_PORT}/${XUI_WEB_BASE_PATH}/panel/api"
 TOKEN="$XUI_API_TOKEN"
 
 say "Удаляю текущие inbound'ы (кроме exit-*)"
-list=$(curl -fsk -m 30 -H "Authorization: Bearer $TOKEN" "$API/inbounds/list" || echo '[]')
+raw=$(curl -fsk -m 30 -H "Authorization: Bearer $TOKEN" "$API/inbounds/list" || echo '{}')
+list=$(jq -c 'if type == "array" then . elif .obj != null then .obj else [] end' <<<"$raw")
 while read -r id remark; do
   [[ -n "$id" ]] || continue
   curl -fsk -m 20 -H "Authorization: Bearer $TOKEN" -X POST "$API/inbounds/del/$id" >/dev/null \
@@ -42,7 +43,9 @@ say "Разворачиваю inbound'ы KIT (как прод, --protocols all)"
 extra=()
 [[ -n "${INSTALLER_EXTRA_ARGS:-}" ]] && # shellcheck disable=SC2206
   extra=($INSTALLER_EXTRA_ARGS)
+export KIT_INBOUNDS_ONLY=1
 bash "$ROOT/vendor/stack/3x-ui.sh" -y --host "$HOST" --protocols all "${extra[@]}"
+unset KIT_INBOUNDS_ONLY
 
 if [[ -n "${NODE_REMARK:-}" ]] && [[ -x "$ROOT/scripts/unify-inbound-remark.sh" ]]; then
   bash "$ROOT/scripts/unify-inbound-remark.sh"

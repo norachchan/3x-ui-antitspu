@@ -19,5 +19,6 @@ sed -i \
   -e 's/kit-sub скачался/прокси подписки скачался/g' \
   -e 's/kit-sub не запустился/прокси подписки не запустился/g' \
   -e 's|https://github.com/itsnotkubrick/3X-UI_KIT|https://github.com/norachchan/3x-ui-antitspu|g' \
+  -e 's/if \[\[ -f \$RESULT && -x \/usr\/local\/x-ui\/x-ui \]\]; then$/if [[ -f $RESULT \&\& -x \/usr\/local\/x-ui\/x-ui \&\& "${KIT_INBOUNDS_ONLY:-0}" != 1 ]]; then/' \
   "$F"
 bash -n "$F"

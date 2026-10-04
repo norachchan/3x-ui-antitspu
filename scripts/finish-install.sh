@@ -13,7 +13,7 @@ DB=/etc/x-ui/x-ui.db
 
 [[ -f "$DB" ]] || { warn "Панель не найдена."; exit 0; }
 
-read -r PANEL_URL USER PASS SUB_URL PROTO_COUNT PROTO_LIST NAME OVERLAY_OK API_TOKEN <<EOF
+IFS=$'\t' read -r PANEL_URL USER PASS SUB_URL PROTO_COUNT PROTO_LIST NAME OVERLAY_OK API_TOKEN <<EOF
 $(python3 - "$DB" "$ENV" <<'PY'
 import json, os, sqlite3, sys, urllib.parse
 
@@ -38,6 +38,7 @@ if os.path.isfile(env_path):
         if not line or line.startswith("#") or "=" not in line:
             continue
         k, v = line.split("=", 1)
+        v = v.strip().strip("'").strip('"')
         env[k] = v
         if k == "XUI_ACCESS_URL":
             panel = v
@@ -150,6 +151,7 @@ rows = con.execute(
 labels = []
 for rm, proto in rows:
     labels.append(rm if rm else proto)
+labels = list(dict.fromkeys(labels))
 count = len(rows)
 overlay = 0
 try:
@@ -158,7 +160,7 @@ try:
 except OSError:
     pass
 
-print(panel, user, passwd, sub_url, count, " ".join(labels), name, overlay, api_token, sep="\t")
+print(panel, user, passwd, sub_url, count, ",".join(labels), name, overlay, api_token, sep="\t")
 PY
 )
 EOF
@@ -183,8 +185,12 @@ if [[ -f "$RESULT" ]]; then
       [[ "$OVERLAY_OK" == 1 ]] && echo "Anti-TSPU: SNI, xmux ≤3 в подписке."
     } >>"$RESULT"
   fi
-  if [[ -n "${API_TOKEN:-}" ]] && ! grep -q '^API:' "$RESULT" 2>/dev/null; then
-    echo "API:     $API_TOKEN" >>"$RESULT"
+  if [[ -n "${API_TOKEN:-}" && "$API_TOKEN" != *$'\t'* && "$API_TOKEN" != *' '* ]]; then
+    if grep -q '^API:' "$RESULT" 2>/dev/null; then
+      sed -i "s|^API:.*|API:     $API_TOKEN|" "$RESULT"
+    else
+      echo "API:     $API_TOKEN" >>"$RESULT"
+    fi
   fi
 fi
 

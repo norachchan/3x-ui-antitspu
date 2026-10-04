@@ -293,7 +293,7 @@ main() {
   set -- ${args[@]+"${args[@]}"}
   [[ $EUID -eq 0 ]] || die "Запустите от root: sudo -i, затем команду ещё раз."
   command -v systemctl >/dev/null || die "Нужен systemd."
-  if [[ -f $RESULT && -x /usr/local/x-ui/x-ui ]]; then
+  if [[ -f $RESULT && -x /usr/local/x-ui/x-ui && "${KIT_INBOUNDS_ONLY:-0}" != 1 ]]; then
     die "3X-UI уже установлена этим скриптом. Управление: команда x-ui, данные для входа: cat $RESULT"
   fi
   # Панель удалили через меню x-ui, а наши файлы остались – убираем их и ставим заново.
