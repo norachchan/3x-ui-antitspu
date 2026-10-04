@@ -71,20 +71,37 @@ def resolve_server_ip():
     return ""
 
 server_ip = resolve_server_ip()
+listen = setting("webListen", "")
+single_443 = False
+if os.path.isfile("/etc/kit/kit.env"):
+    for line in open("/etc/kit/kit.env"):
+        line = line.strip()
+        if line.startswith("SINGLE="):
+            single_443 = line.split("=", 1)[1].strip().strip("'\"") == "yes"
+            break
+if not single_443 and listen in ("127.0.0.1", "localhost") and os.path.isfile("/etc/nginx/conf.d/kit.conf"):
+    single_443 = True
 
-if panel:
+public_host = os.environ.get("ANTITSPU_PUBLIC_HOST", "")
+if not public_host and os.path.isfile("/etc/3x-ui-antitspu.env"):
+    for line in open("/etc/3x-ui-antitspu.env"):
+        if line.startswith("PUBLIC_HOST="):
+            public_host = line.split("=", 1)[1].strip().strip("'\"")
+            break
+phost = (public_host if single_443 and public_host else server_ip) or server_ip
+
+if single_443 and phost:
+    panel = f"https://{phost}{base}"
+elif panel:
     ph = urllib.parse.urlsplit(panel).hostname or ""
-    # subURI/домен в подписке ≠ TLS панели (часто только IP:40455)
-    if ph and not is_ip(ph) and server_ip:
+    if ph and not is_ip(ph) and server_ip and not single_443:
         panel = f"https://{server_ip}:{port}{base}"
 elif server_ip:
-    listen = setting("webListen", "")
-    if listen in ("127.0.0.1", "localhost"):
+    if listen in ("127.0.0.1", "localhost") and not single_443:
         panel = f"http://127.0.0.1:{port}{base}"
     else:
         panel = f"https://{server_ip}:{port}{base}"
 else:
-    listen = setting("webListen", "")
     if listen in ("127.0.0.1", "localhost"):
         panel = f"http://127.0.0.1:{port}{base}"
     else:
@@ -185,7 +202,13 @@ echo "${D}${PROTO_LIST}${N}"
 [[ "$OVERLAY_OK" == 1 ]] && echo "${G}Anti-TSPU overlay:${N} SNI для WS/gRPC, xHTTP xmux ≤ 3."
 echo
 echo "Панель:  ${B}${PANEL_URL}${N}"
-echo "${D}Панель — по IP и порту ${N}${D}(сертификат на IP). Подписка может быть на домене.${N}"
+# shellcheck source=lib-panel-ip.sh
+. "$ROOT/scripts/lib-panel-ip.sh"
+if panel_on_443; then
+  echo "${D}Панель снаружи только на порту 443 (без :40455).${N}"
+else
+  echo "${D}Панель — по IP (TLS на IP). Подписка может быть на домене.${N}"
+fi
 echo "Логин:   ${B}${USER}${N}"
 echo "Пароль:  ${B}${PASS}${N}"
 echo

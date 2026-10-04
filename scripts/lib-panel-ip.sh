@@ -24,3 +24,47 @@ persist_server_ip() {
     echo "XUI_SERVER_IP=$ip" >>"$envf"
   fi
 }
+
+# Режим «всё на 443»: x-ui на 127.0.0.1:webPort, снаружи только nginx:443 (порт 40455 с интернета закрыт).
+panel_on_443() {
+  if [[ -f /etc/kit/kit.env ]]; then
+    local s
+    s="$(grep -E '^SINGLE=' /etc/kit/kit.env 2>/dev/null | cut -d= -f2- | tr -d "'\"")"
+    [[ "$s" == yes ]] && return 0
+  fi
+  if [[ -f /etc/x-ui/x-ui.db ]]; then
+    local wl
+    wl="$(python3 -c "import sqlite3;c=sqlite3.connect('/etc/x-ui/x-ui.db');r=c.execute(\"select value from settings where key='webListen'\").fetchone();print(r[0] if r else '')" 2>/dev/null || true)"
+    [[ "$wl" == "127.0.0.1" && -f /etc/nginx/conf.d/kit.conf ]] && return 0
+  fi
+  return 1
+}
+
+panel_public_host() {
+  if [[ -f /etc/3x-ui-antitspu.env ]]; then
+    # shellcheck disable=SC1091
+    . /etc/3x-ui-antitspu.env
+  fi
+  if panel_on_443 && [[ -n "${PUBLIC_HOST:-}" ]]; then
+    printf '%s' "$PUBLIC_HOST"
+    return 0
+  fi
+  resolve_server_ip
+}
+
+build_panel_access_url() {
+  local envf=/etc/x-ui/install-result.env host port base url
+  [[ -f "$envf" ]] || return 1
+  host="$(panel_public_host)"
+  port="$(grep -m1 '^XUI_PANEL_PORT=' "$envf" 2>/dev/null | cut -d= -f2- | tr -d "'\"")"
+  base="$(grep -m1 '^XUI_WEB_BASE_PATH=' "$envf" 2>/dev/null | cut -d= -f2- | tr -d "'\"")"
+  [[ -n "$host" ]] || return 1
+  [[ -n "$base" ]] || base="/"
+  if panel_on_443; then
+    url="https://${host}/${base#/}"
+  else
+    [[ -n "$port" ]] || port="$(python3 -c "import sqlite3;print(sqlite3.connect('/etc/x-ui/x-ui.db').execute(\"select value from settings where key='webPort'\").fetchone()[0])" 2>/dev/null || echo 2053)"
+    url="https://${host}:${port}/${base#/}"
+  fi
+  printf '%s' "${url%/}/"
+}

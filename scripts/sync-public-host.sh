@@ -104,22 +104,20 @@ fi
 fix_panel_access_url() {
   local envf=/etc/x-ui/install-result.env
   [[ -f "$envf" ]] || return 0
-  local server_ip panel_port base_path
-  server_ip="$(resolve_server_ip)"
+  local panel_port url
   persist_server_ip
   panel_port="$(grep -m1 '^XUI_PANEL_PORT=' "$envf" | cut -d= -f2- | tr -d '"'"'")"
-  base_path="$(grep -m1 '^XUI_WEB_BASE_PATH=' "$envf" | cut -d= -f2- | tr -d '"'"'")"
-  [[ -n "$server_ip" ]] || { warn "Не удалось определить IP панели"; return 0; }
-  [[ -n "$panel_port" ]] || panel_port="$(python3 -c "import sqlite3;print(sqlite3.connect('/etc/x-ui/x-ui.db').execute(\"select value from settings where key='webPort'\").fetchone()[0])" 2>/dev/null || echo 2053)"
-  [[ -n "$base_path" ]] || base_path="/"
-  local url="https://${server_ip}:${panel_port}/${base_path#/}"
-  url="${url%/}/"
+  url="$(build_panel_access_url)" || { warn "Не удалось собрать URL панели"; return 0; }
   if grep -q '^XUI_ACCESS_URL=' "$envf"; then
     sed -i "s|^XUI_ACCESS_URL=.*|XUI_ACCESS_URL=$url|" "$envf"
   else
     echo "XUI_ACCESS_URL=$url" >>"$envf"
   fi
-  say "Панель (открывать по IP, сертификат на IP): $url"
+  if panel_on_443; then
+    say "Панель (nginx :443, не :${panel_port:-webPort}): $url"
+  else
+    say "Панель: $url"
+  fi
 }
 fix_panel_access_url
 
