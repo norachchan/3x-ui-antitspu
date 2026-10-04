@@ -19,21 +19,21 @@ RAN_BASE=0
 
 say_plain() { printf '==> %s\n' "$*"; }
 
-if [[ ! -d "$INSTALL_DIR/.git" ]]; then
-  say_plain "Клонирование $REPO_URL → $INSTALL_DIR"
-  apt-get update -qq
-  apt-get install -y -qq git ca-certificates curl jq patch python3 python3-yaml qrencode >/dev/null
-  git clone --depth 1 "$REPO_URL" "$INSTALL_DIR"
-else
-  say_plain "Обновление репозитория в $INSTALL_DIR"
-  git -C "$INSTALL_DIR" pull --ff-only 2>/dev/null || true
-fi
-
-# curl | bash отдаёт старую копию в память — после pull всегда запускаем install.sh с диска.
-LOCAL_INSTALL="$INSTALL_DIR/install.sh"
-if [[ -f "$LOCAL_INSTALL" ]] && [[ "${ANTITSPU_REEXEC:-0}" != 1 ]]; then
-  export ANTITSPU_REEXEC=1
-  exec bash "$LOCAL_INSTALL" "$@"
+if [[ "${ANTITSPU_REEXEC:-0}" != 1 ]]; then
+  if [[ ! -d "$INSTALL_DIR/.git" ]]; then
+    say_plain "Клонирование $REPO_URL → $INSTALL_DIR"
+    apt-get update -qq
+    apt-get install -y -qq git ca-certificates curl jq patch python3 python3-yaml qrencode >/dev/null
+    git clone --depth 1 "$REPO_URL" "$INSTALL_DIR"
+  else
+    say_plain "Обновление репозитория в $INSTALL_DIR"
+    git -C "$INSTALL_DIR" pull --ff-only 2>/dev/null || true
+  fi
+  LOCAL_INSTALL="$INSTALL_DIR/install.sh"
+  if [[ -f "$LOCAL_INSTALL" ]]; then
+    export ANTITSPU_REEXEC=1
+    exec bash "$LOCAL_INSTALL" "$@"
+  fi
 fi
 
 # shellcheck source=scripts/lib-ui.sh
@@ -52,7 +52,7 @@ export ANTITSPU_DIR="$INSTALL_DIR"
 if [[ ! -f /etc/3x-ui-antitspu.env ]] && [[ -f "$INSTALL_DIR/config/antitspu.env.example" ]]; then
   cp "$INSTALL_DIR/config/antitspu.env.example" /etc/3x-ui-antitspu.env
 fi
-if [[ -x "$INSTALL_DIR/scripts/configure-prompt.sh" ]]; then
+if [[ -x "$INSTALL_DIR/scripts/configure-prompt.sh" ]] && [[ "${ANTITSPU_SKIP_PROMPT:-0}" != 1 ]]; then
   bash "$INSTALL_DIR/scripts/configure-prompt.sh"
 fi
 export ANTITSPU_SKIP_PROMPT=1

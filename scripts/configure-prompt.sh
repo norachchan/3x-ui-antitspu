@@ -45,17 +45,20 @@ ask() {
 }
 
 set_env() {
-  local k="$1" v="$2"
+  local k="$1" v="$2" line
+  # %q — иначе LINK_DOMAIN_SUBS=* ломает source и jq
+  line="$(printf '%s=%q' "$k" "$v")"
   if grep -q "^${k}=" "$ENV_FILE"; then
-    sed -i "s|^${k}=.*|${k}=${v}|" "$ENV_FILE"
+    sed -i "s|^${k}=.*|${line}|" "$ENV_FILE"
   else
-    printf '%s=%s\n' "$k" "$v" >>"$ENV_FILE"
+    printf '%s\n' "$line" >>"$ENV_FILE"
   fi
 }
 
 antitspu_banner
 echo "Настройка адреса в ссылках и имени узла (Enter — оставить по умолчанию)."
-echo "${D}По умолчанию в ссылках только IP. Домен — для self-steal и WS/gRPC.${N}"
+echo "${D}Этот хост попадёт в URL подписки и (после apply) в subURI панели.${N}"
+echo "${D}LINK_DOMAIN — только подмена домена внутри ссылок WS/gRPC; панель на :40455 остаётся с IP, пока нет TLS на домен.${N}"
 echo
 
 ip_def="$(detect_host_from_db)"

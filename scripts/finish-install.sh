@@ -56,9 +56,19 @@ sub_uri = setting("subURI", "").rstrip("/")
 sub_path = setting("subPath", "/sub/")
 row = con.execute(
     "select email, sub_id from clients where enable=1 "
-    "order by case when email='admin' then 0 else 1 end, id limit 1"
+    "order by case when email=? or email like ? then 0 else 1 end, id limit 1",
+    (user or "admin", (user or "admin") + "-%"),
 ).fetchone()
-name, sub_id = (row[0], row[1]) if row else ("admin", "")
+sub_id = row[1] if row else ""
+name = user or "admin"
+if row and row[0]:
+    em = row[0]
+    if em == name or em.startswith(name + "-"):
+        pass
+    elif "-" in em:
+        name = em.split("-", 1)[0]
+    else:
+        name = em
 sub_url = ""
 if sub_id:
     if sub_uri and sub_uri.endswith(sub_path.rstrip("/")):

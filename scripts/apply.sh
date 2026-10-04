@@ -5,8 +5,14 @@ set -Eeuo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=lib-ui.sh
 . "$ROOT/scripts/lib-ui.sh"
-[ -f /etc/3x-ui-antitspu.env ] && # shellcheck disable=SC1091
+if [[ -f /etc/3x-ui-antitspu.env ]]; then
+  if grep -qE '^LINK_DOMAIN_SUBS=\*$' /etc/3x-ui-antitspu.env; then
+    sed -i "s/^LINK_DOMAIN_SUBS=.*/LINK_DOMAIN_SUBS='*'/" /etc/3x-ui-antitspu.env
+  fi
+  # shellcheck disable=SC1091
   . /etc/3x-ui-antitspu.env
+  [[ "${LINK_DOMAIN_SUBS:-}" == "" && -n "${LINK_DOMAIN:-}" ]] && LINK_DOMAIN_SUBS='*'
+fi
 ANTITSPU_DIR="${ANTITSPU_DIR:-$ROOT}"
 
 if [[ -x "$ANTITSPU_DIR/scripts/configure-prompt.sh" ]] && [[ "${ANTITSPU_SKIP_PROMPT:-0}" != 1 ]]; then
@@ -44,13 +50,21 @@ if [[ -f "$CFG" ]] && command -v jq >/dev/null; then
     say "Подписка: host=$PUBLIC_HOST"
     tmp=$(mktemp)
     jq --arg h "$PUBLIC_HOST" '.host = $h' "$CFG" >"$tmp" && mv "$tmp" "$CFG"
+    if [[ -x "$ANTITSPU_DIR/scripts/sync-public-host.sh" ]]; then
+      bash "$ANTITSPU_DIR/scripts/sync-public-host.sh"
+    fi
   fi
   if [[ -n "${LINK_DOMAIN:-}" ]]; then
     say "Подписка: link_domain=$LINK_DOMAIN"
-    subs="${LINK_DOMAIN_SUBS:-[]}"
     tmp=$(mktemp)
-    jq --arg d "$LINK_DOMAIN" --argjson s "$subs" \
-      '.link_domain = $d | .link_domain_subs = $s' "$CFG" >"$tmp" && mv "$tmp" "$CFG"
+    if [[ "${LINK_DOMAIN_SUBS:-*}" == "*" ]]; then
+      jq --arg d "$LINK_DOMAIN" \
+        '.link_domain = $d | .link_domain_subs = "*"' "$CFG" >"$tmp" && mv "$tmp" "$CFG"
+    else
+      jq --arg d "$LINK_DOMAIN" --arg s "${LINK_DOMAIN_SUBS:-}" \
+        '.link_domain = $d | .link_domain_subs = (if $s == "" then [] else [$s] end)' \
+        "$CFG" >"$tmp" && mv "$tmp" "$CFG"
+    fi
   fi
   systemctl restart kit-sub 2>/dev/null || true
 fi
@@ -80,16 +94,32 @@ if [[ -f "$ANTITSPU_DIR/systemd/nginx-limits.conf" ]]; then
 fi
 
 if [[ -n "${SELFSTEAL_DOMAIN:-}" ]] && [[ -f "$ANTITSPU_DIR/templates/nginx-selfsteal.conf.template" ]]; then
-  say "nginx self-steal для $SELFSTEAL_DOMAIN"
-  # shellcheck disable=SC1091
-  . /etc/x-ui/install-result.env 2>/dev/null || true
-  port="${SELFSTEAL_LISTEN_PORT:-10448}"
-  out=/etc/nginx/conf.d/zz-selfsteal.conf
-  sed -e "s/@SELFSTEAL_DOMAIN@/$SELFSTEAL_DOMAIN/g" \
-      -e "s/@LISTEN_PORT@/$port/g" \
-      -e "s|@SUB_PATH@|${XUI_SUB_PATH:-/sub/}|g" \
-      "$ANTITSPU_DIR/templates/nginx-selfsteal.conf.template" >"$out"
-  nginx -t && systemctl reload nginx
+  cert_dir="${SELFSTEAL_CERT_DIR:-/root/cert/domain}"
+  cert_crt="${SELFSTEAL_CERT_FILE:-$cert_dir/fullchain.pem}"
+  cert_key="${SELFSTEAL_KEY_FILE:-$cert_dir/privkey.pem}"
+  if [[ -f "$cert_crt" && -f "$cert_key" ]]; then
+    say "nginx self-steal для $SELFSTEAL_DOMAIN"
+    # shellcheck disable=SC1091
+    . /etc/x-ui/install-result.env 2>/dev/null || true
+    port="${SELFSTEAL_LISTEN_PORT:-10448}"
+    sub_path="$(python3 -c "import sqlite3;print(sqlite3.connect('/etc/x-ui/x-ui.db').execute(\"select value from settings where key='subPath'\").fetchone()[0])" 2>/dev/null || echo '/sub/')"
+    out=/etc/nginx/conf.d/zz-selfsteal.conf
+    sed -e "s/@SELFSTEAL_DOMAIN@/$SELFSTEAL_DOMAIN/g" \
+        -e "s|@LISTEN_PORT@|$port|g" \
+        -e "s|@SUB_PATH@|${sub_path}|g" \
+        -e "s|/root/cert/domain/fullchain.pem|$cert_crt|g" \
+        -e "s|/root/cert/domain/privkey.pem|$cert_key|g" \
+        "$ANTITSPU_DIR/templates/nginx-selfsteal.conf.template" >"$out"
+    nginx -t && systemctl reload nginx
+  else
+    warn "Self-steal nginx пропущен: нет сертификата $cert_crt"
+    warn "Выпуск: bash $ANTITSPU_DIR/scripts/issue-domain-cert.sh $SELFSTEAL_DOMAIN"
+    if [[ -f /etc/nginx/conf.d/zz-selfsteal.conf ]]; then
+      rm -f /etc/nginx/conf.d/zz-selfsteal.conf
+      nginx -t 2>/dev/null && systemctl reload nginx 2>/dev/null || true
+      warn "Удалён старый zz-selfsteal.conf (без cert ломал nginx -t)"
+    fi
+  fi
 fi
 
 if [[ -n "${XRAY_VERSION:-}" ]] && [[ -x "$ANTITSPU_DIR/scripts/upgrade-xray.sh" ]]; then
