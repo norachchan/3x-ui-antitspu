@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Наложить anti-TSPU overlay на уже установленную панель 3X-UI (+ kit-sub).
+# Anti-TSPU overlay на установленную панель 3X-UI.
 set -Eeuo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -13,38 +13,38 @@ fi
 
 [[ $EUID -eq 0 ]] || { echo "Запустите от root." >&2; exit 1; }
 [[ -f /etc/x-ui/x-ui.db ]] || [[ -f /etc/x-ui/install-result.env ]] || {
-  echo "Сначала установите 3X-UI (bash install.sh на чистом VPS или KIT)." >&2
+  echo "Сначала: bash install.sh на чистом VPS." >&2
   exit 1
 }
 
 say() { printf '==> %s\n' "$*"; }
 
-if [[ ! -f /usr/local/lib/kit-sub/kit_sub.py ]]; then
-  say "kit-sub не найден — bootstrap"
-  bash "$ANTITSPU_DIR/scripts/bootstrap-kit-sub.sh"
+SUB_PY=/usr/local/lib/kit-sub/kit_sub.py
+OVERLAY="$ANTITSPU_DIR/overlay/sub_proxy.py"
+
+if [[ ! -f "$SUB_PY" ]]; then
+  say "Сервис подписки не найден — bootstrap"
+  bash "$ANTITSPU_DIR/scripts/bootstrap-sub.sh"
 fi
 install -d -m 755 /usr/local/lib/kit-sub /etc/kit-sub
 
-say "Подписка: overlay kit_sub.py"
+say "Подписка: overlay anti-TSPU"
 export ANTITSPU_DIR
 bash "$ANTITSPU_DIR/scripts/reapply-sub.sh"
 
-# Принудительно обновить overlay (всегда синхронизировать с репозиторием)
-install -m 644 "$ANTITSPU_DIR/overlay/kit_sub.py" /usr/local/lib/kit-sub/kit_sub.py
-python3 -m py_compile /usr/local/lib/kit-sub/kit_sub.py
+install -m 644 "$OVERLAY" "$SUB_PY"
+python3 -m py_compile "$SUB_PY"
 systemctl restart kit-sub
 
 CFG=/etc/kit-sub/config.json
 if [[ -f "$CFG" ]] && command -v jq >/dev/null; then
-  host="${PUBLIC_HOST:-}"
-  [[ -z "$host" ]] && host=$(jq -r '.host // empty' "$CFG")
   if [[ -n "${PUBLIC_HOST:-}" ]]; then
-    say "kit-sub host=$PUBLIC_HOST"
+    say "Подписка: host=$PUBLIC_HOST"
     tmp=$(mktemp)
     jq --arg h "$PUBLIC_HOST" '.host = $h' "$CFG" >"$tmp" && mv "$tmp" "$CFG"
   fi
   if [[ -n "${LINK_DOMAIN:-}" ]]; then
-    say "kit-sub link_domain=$LINK_DOMAIN"
+    say "Подписка: link_domain=$LINK_DOMAIN"
     subs="${LINK_DOMAIN_SUBS:-[]}"
     tmp=$(mktemp)
     jq --arg d "$LINK_DOMAIN" --argjson s "$subs" \
@@ -57,8 +57,8 @@ if [[ -n "${NODE_REMARK:-}" ]] && [[ -x "$ANTITSPU_DIR/scripts/rename-inbounds.s
   bash "$ANTITSPU_DIR/scripts/rename-inbounds.sh"
 fi
 
-if [[ -f "$ANTITSPU_DIR/scripts/kit-ip-cert-sync.sh" ]]; then
-  install -m 755 "$ANTITSPU_DIR/scripts/kit-ip-cert-sync.sh" /usr/local/sbin/kit-ip-cert-sync.sh
+if [[ -f "$ANTITSPU_DIR/scripts/ip-cert-sync.sh" ]]; then
+  install -m 755 "$ANTITSPU_DIR/scripts/ip-cert-sync.sh" /usr/local/sbin/3x-ui-antitspu-ip-cert-sync.sh
 fi
 
 install -m 755 "$ANTITSPU_DIR/scripts/reapply-sub.sh" /usr/local/sbin/3x-ui-antitspu-reapply.sh

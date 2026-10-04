@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
-# 3x-ui-antitspu — единый установщик: встроенный 3X-UI KIT + overlay против ТСПУ.
+# 3x-ui-antitspu — установка панели, протоколов и anti-TSPU overlay.
 #
-# Новый VPS (одна команда):
 #   bash <(curl -fsSL https://raw.githubusercontent.com/norachchan/3x-ui-antitspu/main/install.sh)
 #
-# Только overlay (панель уже есть):
+# Только overlay:
 #   SKIP_BASE_INSTALL=1 bash <(curl -fsSL .../install.sh)
 #
-# Аргументы KIT после -- :
+# Флаги установщика после -- :
 #   bash install.sh -- --domain stats.example.com -y
 #
 set -Eeuo pipefail
@@ -19,7 +18,7 @@ INSTALL_DIR="${INSTALL_DIR:-/opt/3x-ui-antitspu}"
 
 say() { printf '==> %s\n' "$*"; }
 
-kit_sub_ready() {
+sub_proxy_ready() {
   [[ -f /usr/local/lib/kit-sub/kit_sub.py ]] && [[ -f /etc/kit-sub/config.json ]]
 }
 
@@ -27,7 +26,6 @@ xui_present() {
   [[ -f /etc/x-ui/x-ui.db ]] || [[ -f /etc/x-ui/install-result.env ]]
 }
 
-# --- репозиторий (нужен vendor/kit) ---
 if [[ ! -d "$INSTALL_DIR/.git" ]]; then
   say "Клонирование $REPO_URL → $INSTALL_DIR"
   apt-get update -qq
@@ -48,26 +46,24 @@ if [[ -x "$INSTALL_DIR/scripts/configure-prompt.sh" ]]; then
 fi
 export ANTITSPU_SKIP_PROMPT=1
 
-# --- базовый стек KIT из vendor ---
-kit_args=()
+installer_args=()
 if [[ "${1:-}" == "--" ]]; then
   shift
-  kit_args=("$@")
+  installer_args=("$@")
 fi
 
 if [[ "${SKIP_BASE_INSTALL:-0}" != "1" ]] && ! xui_present; then
-  bash "$INSTALL_DIR/scripts/kit-install.sh" -- "${kit_args[@]}"
-  if command -v kit >/dev/null; then
-    say "Проверка обновлений kit CLI"
-    kit update --unattended 2>/dev/null || true
+  bash "$INSTALL_DIR/scripts/base-install.sh" -- "${installer_args[@]}"
+  if [[ -x /usr/local/bin/kit ]]; then
+    /usr/local/bin/kit update --unattended 2>/dev/null || true
   fi
-elif [[ "${#kit_args[@]}" -gt 0 ]]; then
-  say "Панель уже есть — флаги KIT игнорируются (overlay только). Для KIT: удалите SKIP_BASE_INSTALL или переустановите вручную."
+elif [[ "${#installer_args[@]}" -gt 0 ]]; then
+  say "Панель уже есть — аргументы установщика не применяются (только overlay)."
 fi
 
-if ! kit_sub_ready && xui_present; then
-  say "Панель есть, kit-sub нет — bootstrap"
-  bash "$INSTALL_DIR/scripts/bootstrap-kit-sub.sh"
+if ! sub_proxy_ready && xui_present; then
+  say "Сервис подписки не найден — bootstrap"
+  bash "$INSTALL_DIR/scripts/bootstrap-sub.sh"
 fi
 
 bash "$INSTALL_DIR/scripts/apply.sh"
@@ -75,4 +71,4 @@ bash "$INSTALL_DIR/scripts/apply.sh"
 say ""
 say "Готово. Каталог: $INSTALL_DIR"
 say "Повтор overlay: ANTITSPU_DIR=$INSTALL_DIR bash $INSTALL_DIR/scripts/apply.sh"
-say "Донастройка панели: $INSTALL_DIR/docs/PANEL-TUNING.md"
+say "Донастройка: $INSTALL_DIR/docs/PANEL-TUNING.md"

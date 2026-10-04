@@ -1,6 +1,6 @@
 #!/bin/sh
 # acme.sh reloadcmd for the IP certificate: nginx and the panel read /root/cert/custom,
-# which KIT created as a one-off copy of /root/cert/ip and nothing else keeps in sync.
+# one-off copy of /root/cert/ip that nothing else keeps in sync.
 set -u
 src=/root/cert/ip
 dst=/root/cert/custom
@@ -15,4 +15,4 @@ install -m 600 "$src/privkey.pem" "$dst/privkey.pem"
 
 nginx -t >/dev/null 2>&1 && systemctl reload nginx
 systemctl restart x-ui 2>/dev/null || true
-logger -t kit-ip-cert-sync "synced $src -> $dst, reloaded nginx, restarted x-ui"
+logger -t 3x-ui-antitspu-cert "synced $src -> $dst, reloaded nginx, restarted x-ui"

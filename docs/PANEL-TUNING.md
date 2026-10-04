@@ -8,4 +8,4 @@
 4. **AmneziaWG** — порты 51821 / 51822, клиенты `*-awg` для Clash/Mihomo.
 5. **nginx** — `worker_connections 16384`, `worker_rlimit_nofile 65535` (частично в `apply.sh`).
 
-Проверка из РФ: `kit-probe` / Happ, burst 8× TLS без заморозки IP.
+Проверка из РФ: probe / Happ, burst 8× TLS без заморозки IP.

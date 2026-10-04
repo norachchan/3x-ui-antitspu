@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 3X-UI со всеми протоколами одной командой – https://github.com/itsnotkubrick/3X-UI_KIT
+# 3X-UI со всеми протоколами одной командой – https://github.com/norachchan/3x-ui-antitspu
 #
 # Установка:  bash <(curl -fsSL https://raw.githubusercontent.com/itsnotkubrick/3X-UI_KIT/main/scripts/3x-ui.sh)
 #
@@ -274,9 +274,9 @@ kit_banner() {
 ART
   printf '%s' "$N"
   echo
-  echo "${B}3X-UI KIT${N} на основе панели 3X-UI (MHSanaei/3x-ui), ядра Xray и mihomo"
+  echo "${B}3x-ui-antitspu${N} на основе панели 3X-UI (MHSanaei/3x-ui), ядра Xray и mihomo"
   echo
-  echo "  https://github.com/itsnotkubrick/3X-UI_KIT"
+  echo "  https://github.com/norachchan/3x-ui-antitspu"
   echo "  ${D}it's not Kubrick. it's just a VPN.${N}"
   echo
   echo "Ниже – данные для входа в панель и подключения."
@@ -539,7 +539,7 @@ main() {
   [[ $SINGLE == yes ]] && links=$(sed "s/^\(tg:\/\/proxy?\)\(.*\)port=${INNER[mtproto]}/\1\2port=443/" <<<"$links")
   umask 077
   {
-    echo "3X-UI KIT (3X-UI $XUI_VERSION) – данные для входа (файл виден только root)"
+    echo "3x-ui-antitspu (3X-UI $XUI_VERSION) – данные для входа (файл виден только root)"
     echo
     echo "Панель:  $panel_url"
     echo "Логин:   $XUI_USERNAME"
@@ -1057,7 +1057,7 @@ brand_xui_menu() {
 # ---------- всё на 443: nginx ----------
 
 # Сайт-заглушка: на случайный заход по 443 сервер показывает обычный сайт. Шаблон выбирается
-# случайно из набора, чтобы тысячи серверов 3X-UI KIT не выглядели одинаково. Всё внутри
+# случайно из набора, чтобы тысячи серверов 3x-ui-antitspu не выглядели одинаково. Всё внутри
 # скрипта, со сторонних сайтов ничего не скачивается.
 stub_site() {
   local n year
@@ -1161,7 +1161,7 @@ setup_nginx() {
   local panel_path=/${XUI_WEB_BASE_PATH#/}
   panel_path=${panel_path%/}/
   {
-    echo "# Сгенерировано 3x-ui.sh (3X-UI KIT) – перезаписывается при повторном запуске."
+    echo "# Сгенерировано 3x-ui.sh (3x-ui-antitspu) – перезаписывается при повторном запуске."
     echo "stream {"
     echo "    map \$ssl_preread_server_name \$kit_upstream {"
     [[ -n $reality_sni ]] && echo "        $reality_sni 127.0.0.1:${INNER[reality]};"
@@ -1181,7 +1181,7 @@ setup_nginx() {
     echo "}"
   } >/etc/nginx/kit-stream.conf
   cat >/etc/nginx/conf.d/kit.conf <<NGX
-# Сгенерировано 3x-ui.sh (3X-UI KIT) – перезаписывается при повторном запуске.
+# Сгенерировано 3x-ui.sh (3x-ui-antitspu) – перезаписывается при повторном запуске.
 server {
     listen 127.0.0.1:${INNER[web]} ssl http2 proxy_protocol;
     server_name _;
@@ -1267,14 +1267,14 @@ setup_subscription() {
     # Без subURI панель показывает ссылку на внутренний порт 2097, до которого снаружи не достучаться.
     local uri="https://$HOST:$SUB_PORT$SUB_PATH"
     [[ $SINGLE == yes ]] && uri="https://$HOST$SUB_PATH"
-    upd=$(jq -c --arg path "$SUB_PATH" --argjson ip "$SUB_INTERNAL" --arg title "3X-UI KIT" --arg uri "$uri" '
+    upd=$(jq -c --arg path "$SUB_PATH" --argjson ip "$SUB_INTERNAL" --arg title "3x-ui-antitspu" --arg uri "$uri" '
       .subEnable = true | .subPath = $path | .subTitle = $title | .subListen = "127.0.0.1" | .subPort = $ip
       | .subURI = $uri
       | .subCertFile = "" | .subKeyFile = ""
       | .subClashEnable = true | .subClashAutoDetect = true | .subJsonEnable = true | .subJsonAutoDetect = true' <<<"$all")
   else
     SUB_PORT=$(jq -r '.subPort // 2096' <<<"$all")
-    upd=$(jq -c --arg path "$SUB_PATH" --arg title "3X-UI KIT" '
+    upd=$(jq -c --arg path "$SUB_PATH" --arg title "3x-ui-antitspu" '
       .subEnable = true | .subPath = $path | .subTitle = $title
       | .subClashEnable = true | .subClashAutoDetect = true | .subJsonEnable = true | .subJsonAutoDetect = true' <<<"$all")
   fi
@@ -1295,7 +1295,7 @@ setup_subscription() {
 kit_sub_unit() { # путь-к-сертификату путь-к-ключу (пусто – за nginx)
   cat <<UNIT
 [Unit]
-Description=kit-sub: подписка с учётом приложения (3X-UI KIT)
+Description=3x-ui-antitspu subscription proxy
 After=network-online.target x-ui.service
 Wants=network-online.target
 
@@ -1338,11 +1338,11 @@ install_kit_sub_file() {
   fi
   if [[ -n $src ]]; then install -m 644 "$src" /usr/local/lib/kit-sub/kit_sub.py
   else curl -fsSL --retry 3 -o /usr/local/lib/kit-sub/kit_sub.py "$KIT_SUB_URL"; fi
-  python3 -c "import ast,sys; ast.parse(open(sys.argv[1]).read())" /usr/local/lib/kit-sub/kit_sub.py || die "kit-sub скачался повреждённым"
+  python3 -c "import ast,sys; ast.parse(open(sys.argv[1]).read())" /usr/local/lib/kit-sub/kit_sub.py || die "прокси подписки скачался повреждённым"
 }
 
 install_kit_sub() {
-  say "Ставлю подписку с учётом приложения (kit-sub)"
+  say "Ставлю прокси подписки"
   apt-get install -y -qq python3 python3-yaml >/dev/null
   install_kit_sub_file
   if [[ $SINGLE == yes ]]; then
@@ -1369,7 +1369,7 @@ install_kit_sub() {
   [[ $SINGLE == yes ]] && kp=${INNER[sub]}
   for i in $(seq 1 20); do port_busy "$kp" tcp && return 0; sleep 1; done
   journalctl -u kit-sub -n 20 --no-pager >&2 || true
-  die "kit-sub не запустился – лог выше."
+  die "прокси подписки не запустился – лог выше."
 }
 
 # Ссылки пользователя – из его же подписки (её собирает сама 3X-UI).

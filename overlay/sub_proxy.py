@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""Подписка с учётом приложения – посредник перед подпиской 3X-UI.
+"""Прокси подписки 3X-UI (3x-ui-antitspu overlay).
 
-https://github.com/itsnotkubrick/3X-UI_KIT
-Overlay 3x-ui-antitspu: add_sni (gRPC/WS), link_domain, xHTTP xmux maxConnections=3.
+add_sni (gRPC/WS), link_domain, xHTTP xmux maxConnections=3.
 
 Слушает публичный адрес подписки (HTTPS) и ходит в подписку 3X-UI на 127.0.0.1:
   * Clash / Mihomo (Clash Verge, FlClash, Mihomo Party…) – конфиг 3X-UI плюс AmneziaWG
@@ -311,7 +310,7 @@ def main():
         cert, key = os.path.join(CREDS, "cert.pem"), os.path.join(CREDS, "key.pem")
     if not cert:
         srv = Server((CONF.get("listen", "127.0.0.1"), int(CONF["port"])), Handler)
-        log(f"kit-sub слушает http://{CONF.get('listen', '127.0.0.1')}:{CONF['port']}{PATH} (TLS снимает nginx)")
+        log(f"sub-proxy слушает http://{CONF.get('listen', '127.0.0.1')}:{CONF['port']}{PATH} (TLS снимает nginx)")
         srv.serve_forever()
         return
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
@@ -335,7 +334,7 @@ def main():
     threading.Thread(target=reload_cert, daemon=True).start()
     srv = Server((CONF.get("listen", "0.0.0.0"), int(CONF["port"])), Handler)
     srv.ssl_ctx = ctx
-    log(f"kit-sub слушает {CONF.get('listen', '0.0.0.0')}:{CONF['port']}{PATH}")
+    log(f"sub-proxy слушает {CONF.get('listen', '0.0.0.0')}:{CONF['port']}{PATH}")
     srv.serve_forever()
 
 

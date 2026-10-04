@@ -46,7 +46,7 @@ set_env() {
 
 say ""
 say "=== 3x-ui-antitspu: адрес в ссылках и имя узла ==="
-say "KIT по умолчанию ставит только IP. Домен нужен для self-steal и WS/gRPC через nginx."
+say "По умолчанию в ссылках только IP. Домен нужен для self-steal и WS/gRPC через nginx."
 say ""
 
 ip_def="$(detect_host_from_db)"
@@ -58,7 +58,7 @@ ask PUBLIC_HOST "IP или хост в подписке (как в ссылка�
 say ""
 say "Домен с A-записью на этот сервер (Enter = не использовать):"
 dom_def="$(cur LINK_DOMAIN)"
-ask LINK_DOMAIN "  LINK_DOMAIN (WS/gRPC, kit-sub host)" "$dom_def"
+ask LINK_DOMAIN "  LINK_DOMAIN (WS/gRPC в подписке)" "$dom_def"
 
 if [[ -n "$(cur LINK_DOMAIN)" ]] || grep -q '^LINK_DOMAIN=' "$ENV_FILE"; then
   subs_def="$(cur LINK_DOMAIN_SUBS)"
